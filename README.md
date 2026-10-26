@@ -6,7 +6,12 @@ Built on the same engine as *Corporate Integration Management* (Go Overseas). Sa
 
 ## Live
 
-<https://yan-shipeng.github.io/esg-simulation/en>
+- 静态版（本仓库，无排行榜）：<https://yan-shipeng.github.io/esg-simulation/>
+- 主入口（薄壳 → 带排行榜的服务端版）：<https://yan-shipeng.github.io/go-overseas/>
+
+两个地址跑的是同一套 ESG 内容。`go-overseas` 那层薄壳用 iframe 指向 WorkBuddy Sites
+上的服务端版本，所以能跨设备记录排行榜；本仓库这份是纯静态备份，断网式兜底，
+排行榜不可用时会降级为本地会话。
 
 ## What changed vs. the original
 
