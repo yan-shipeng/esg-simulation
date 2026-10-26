@@ -69,18 +69,39 @@
     <div id="msg">Loading ESG simulation…</div>
     <div id="slow">Waking the game server — this can take a few seconds the first time.
       <a href="./">Reload</a></div>
-    <a id="direct" href="https://efb5f7ce148f450da7f6c4c1c7b98647.sg2.agentos-app.run/esg/en" target="_top" rel="noopener">Open it directly →</a>
+    <a id="direct" href="https://78c543eb7a1547ed8d854be143466ecc.sg2.agentos-app.run/esg/en" target="_top" rel="noopener">Open it directly →</a>
     <div id="elapsed"></div>
   </div>
   <iframe
     id="app"
-    src="https://efb5f7ce148f450da7f6c4c1c7b98647.sg2.agentos-app.run/esg/en"
+    src="https://78c543eb7a1547ed8d854be143466ecc.sg2.agentos-app.run/esg/en"
     title="ESG Transition Challenge"
     allow="fullscreen"
     referrerpolicy="no-referrer-when-downgrade"
     onload="window.__appLoaded = true; document.getElementById('loading').classList.add('hidden')"
   ></iframe>
   <noscript>This simulation requires JavaScript. Please enable it and reload.</noscript>
+  <script>
+    /* 当前游戏地址从这里读，不再写死在页面里。
+       每次重新发布游戏，只需要改 current.json 一行，这个入口页就跟着走。 */
+    (function () {
+      var FALLBACK = 'https://78c543eb7a1547ed8d854be143466ecc.sg2.agentos-app.run/esg/en';
+      var frame = document.getElementById('app');
+      var direct = document.getElementById('direct');
+
+      function apply(url) {
+        if (!url || typeof url !== 'string' || url.indexOf('http') !== 0) return;
+        if (frame.getAttribute('src') !== url) frame.src = url;
+        direct.href = url;
+      }
+
+      apply(FALLBACK);
+      fetch('current.json?t=' + Date.now(), { cache: 'no-store' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (j) { if (j && j.url) apply(j.url); })
+        .catch(function () { /* 拿不到就用内置的兜底地址 */ });
+    })();
+  </script>
   <script>
     /* 加载态分三段：先等，再解释，最后给一条直连。
        之前只有一句 "Loading…"，慢的时候看起来就是卡死了。 */
@@ -96,23 +117,18 @@
         if (window.__appLoaded) { clearInterval(tick); return; }
         var s = Math.round((Date.now() - t0) / 1000);
         elapsed.textContent = s + 's';
-        if (s >= 5) { msg.textContent = 'Still loading…'; slow.style.display = 'block'; }
+        if (s >= 4) { msg.textContent = 'Still loading…'; slow.style.display = 'block'; }
         if (s >= 12) {
           msg.textContent = 'Taking longer than usual';
           direct.classList.add('on');
         }
+        /* 服务是冷启动的，第一次打开常常要十几秒。别自动刷新——
+           刷新会把等待重新计时，反而更像卡死。给个直连就够了。 */
+        if (s >= 25) {
+          msg.textContent = 'The server is still waking up';
+          direct.classList.add('on');
+        }
       }, 1000);
-
-      /* 20 秒还没起来：自动重载一次（只一次，避免循环） */
-      setTimeout(function () {
-        if (window.__appLoaded) return;
-        try {
-          if (!sessionStorage.getItem('esg-retried')) {
-            sessionStorage.setItem('esg-retried', '1');
-            location.reload();
-          }
-        } catch (e) {}
-      }, 20000);
     })();
   </script>
 </body>
