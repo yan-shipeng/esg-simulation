@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>ESG 模拟 · 线性流程原型</title>
+<style>
+  :root{
+    --bg:#06111a; --surface:#0d1e2a; --surface2:#0a1822; --border:rgba(255,255,255,.10);
+    --text:#d8eef4; --muted:#5a8090; --primary:#0d8b96; --accent:#12b886;
+    --s0:#6a7a7e; --s1:#3a7abf; --s2:#0d8b96; --s3:#7b4fd4; --s4:#3a9e38;
+    --danger:#e05068; --warn:#e0a33a;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%}
+  body{
+    margin:0;background:var(--bg);color:var(--text);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",system-ui,sans-serif;
+    display:flex;justify-content:center;
+  }
+  #app{
+    width:100%;max-width:520px;height:100vh;height:100dvh;
+    display:flex;flex-direction:column;background:var(--bg);position:relative;overflow:hidden;
+  }
+
+  /* ── 原型提示条 ── */
+  .proto{
+    flex:0 0 auto;background:rgba(224,163,58,.12);border-bottom:1px solid rgba(224,163,58,.28);
+    color:#e8c07a;font-size:11px;text-align:center;padding:5px 10px;letter-spacing:.02em;
+  }
+
+  /* ── 顶栏 ── */
+  .bar{
+    flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;
+    padding:9px 14px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted);
+  }
+  .bar .who{color:var(--text);font-weight:700}
+  .bar .round{color:var(--muted)}
+  .pill{border:1px solid rgba(18,184,134,.42);background:rgba(18,184,134,.12);color:#5fe0b0;
+    border-radius:999px;padding:2px 8px;font-size:10px;font-weight:800;letter-spacing:.04em}
+
+  /* ── 步骤条 ── */
+  .steps{flex:0 0 auto;display:flex;align-items:center;gap:6px;padding:10px 14px 8px}
+  .dot{width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    font-size:10.5px;font-weight:800;border:1px solid var(--border);color:var(--muted);background:rgba(255,255,255,.04);flex:0 0 auto}
+  .dot.on{background:var(--accent);color:#04211c;border-color:var(--accent)}
+  .dot.done{background:rgba(127,215,196,.16);color:#7fd7c4;border-color:rgba(127,215,196,.35)}
+  .line{height:2px;flex:1;background:rgba(255,255,255,.09);border-radius:2px}
+  .line.done{background:rgba(127,215,196,.4)}
+  .slabel{font-size:11px;color:var(--muted);margin-left:4px;white-space:nowrap}
+  .slabel.on{color:#7fd7c4;font-weight:700}
+
+  /* ── 指标条 ── */
+  .stats{flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:0 14px 10px}
+  .st{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:7px 9px;position:relative;overflow:hidden}
+  .st::after{content:"";position:absolute;left:0;right:0;top:0;height:2px;background:linear-gradient(90deg,var(--primary),transparent 75%);opacity:.5}
+  .st .k{font-size:8.5px;letter-spacing:.06em;color:var(--muted);text-transform:uppercase}
+  .st .v{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:2px;line-height:1.1}
+  .v.teal{color:#3ecfdc}.v.green{color:#5fe0b0}.v.red{color:#e05068}.v.amber{color:#e0a33a}
+
+  /* ── 舞台 ── */
+  .stage{flex:1 1 auto;position:relative;overflow:hidden}
+  .screen{
+    position:absolute;inset:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:2px 14px 18px;opacity:0;pointer-events:none;transform:translateX(18px);
+    transition:opacity .26s ease, transform .26s ease;
+  }
+  .screen.active{opacity:1;pointer-events:auto;transform:none}
+  .screen.back{transform:translateX(-18px)}
+
+  .h1{font-size:17px;font-weight:800;letter-spacing:-.01em;margin:6px 0 3px}
+  .note{font-size:11.5px;color:var(--muted);line-height:1.55;margin-bottom:10px}
+
+  /* ── 网络 ── */
+  .graph{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:8px;margin-bottom:10px}
+  svg{display:block;width:100%;height:auto;touch-action:manipulation}
+  .node{cursor:pointer}
+  .node circle{transition:stroke-width .15s, filter .15s}
+  .node.sel circle{stroke-width:3.2;filter:drop-shadow(0 0 7px rgba(18,184,134,.55))}
+  .legend{display:flex;gap:10px;flex-wrap:wrap;font-size:10px;color:var(--muted);padding:2px 4px 6px}
+  .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:middle}
+
+  .person{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:12px}
+  .person .n{font-size:14px;font-weight:800}
+  .person .r{font-size:11px;color:var(--muted);margin-top:2px}
+  .person .d{font-size:11.5px;line-height:1.6;color:#b9d7e0;margin-top:8px}
+  .person .badges{display:flex;gap:6px;flex-wrap:wrap;margin-top:9px}
+  .bdg{font-size:10px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+
+  /* ── 决策 ── */
+  .group{margin-bottom:12px}
+  .group .gh{display:flex;align-items:center;justify-content:space-between;margin:0 2px 7px}
+  .group .gh .gl{font-size:12.5px;font-weight:800;color:#9fd4de;letter-spacing:.02em}
+  .group .gh .gm{font-size:10px;color:var(--muted)}
+  .act{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+    background:var(--surface2);border:1px solid var(--border);border-radius:12px;
+    padding:11px 12px;margin-bottom:7px;color:inherit;font-family:inherit;cursor:pointer;
+    transition:border-color .15s, background .15s, transform .08s;
+  }
+  .act:active{transform:scale(.995)}
+  .act .ic{width:28px;height:28px;border-radius:9px;background:rgba(255,255,255,.06);flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#9fd4de}
+  .act .tx{flex:1;min-width:0}
+  .act .t1{display:block;font-size:13.5px;font-weight:700;line-height:1.3}
+  .act .t2{display:block;font-size:10.5px;color:var(--muted);margin-top:3px;line-height:1.45}
+  .act .rd{width:16px;height:16px;border-radius:50%;border:1.5px solid rgba(255,255,255,.22);flex:0 0 auto}
+  .act.sel{border-color:var(--accent);background:rgba(18,184,134,.10);box-shadow:0 0 0 1px rgba(18,184,134,.30) inset}
+  .act.sel .rd{border-color:var(--accent);background:var(--accent);box-shadow:inset 0 0 0 3px rgba(4,33,28,.85)}
+  .act:disabled{opacity:.38;cursor:not-allowed}
+
+  /* ── 结果 ── */
+  .res{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px}
+  .res .rt{font-size:15.5px;font-weight:800;line-height:1.35}
+  .deltas{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;margin:11px 0}
+  .dl{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:8px 9px}
+  .dl .k{font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+  .dl .v{font-size:16px;font-weight:800;margin-top:2px}
+  .quote{font-size:12px;line-height:1.65;color:#b9d7e0;border-left:2px solid var(--primary);padding-left:10px}
+  .tags{display:flex;gap:6px;flex-wrap:wrap;margin-top:11px}
+  .tag{font-size:9.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted)}
+
+  /* ── 涟漪 ── */
+  .ripple{margin-top:12px}
+  .ripple .rh{font-size:11.5px;font-weight:800;color:#9fd4de;margin:0 2px 7px;display:flex;justify-content:space-between;align-items:baseline}
+  .ripple .rh em{font-style:normal;font-size:10px;color:var(--muted);font-weight:400}
+  .rw{display:flex;align-items:center;gap:9px;background:var(--surface2);border:1px solid var(--border);
+    border-radius:11px;padding:9px 11px;margin-bottom:6px}
+  .rw i{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .rw .nm{font-size:12px;font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rw .ch{font-size:10.5px;color:var(--muted);flex:0 0 auto}
+  .nextbox{margin-top:12px;background:rgba(13,139,150,.10);border:1px solid rgba(13,139,150,.30);
+    border-radius:12px;padding:11px 12px;font-size:11.5px;line-height:1.6;color:#a8cfd8}
+  .nextbox b{color:#5fe0b0}
+
+  /* ── 底栏 ── */
+  .foot{flex:0 0 auto;padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--border);background:rgba(6,17,26,.97)}
+  .cta{
+    width:100%;height:48px;border:none;border-radius:12px;background:var(--accent);color:#04211c;
+    font-family:inherit;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;
+    transition:opacity .15s, transform .08s;
+  }
+  .cta:active{transform:scale(.99)}
+  .cta:disabled{opacity:.4}
+  .cta.ghost{background:transparent;border:1px solid rgba(18,184,134,.45);color:#5fe0b0}
+  .hint{text-align:center;font-size:10.5px;color:var(--muted);margin-top:7px;min-height:14px}
+</style>
+</head>
+<body>
+<div id="app">
+  <div class="proto">原型 · 假数据，只用来试手感，不计分不上榜</div>
+
+  <div class="bar">
+    <span><span class="who" id="who">Preview</span> <span class="round" id="roundTag">· 第 1 轮</span></span>
+    <span class="pill">IN PROGRESS</span>
+  </div>
+
+  <div class="steps">
+    <div class="dot on" id="d1">1</div>
+    <div class="line" id="l1"></div>
+    <div class="dot" id="d2">2</div>
+    <div class="line" id="l2"></div>
+    <div class="dot" id="d3">3</div>
+    <div class="slabel on" id="sl">先看网络</div>
+  </div>
+
+  <div class="stats">
+    <div class="st"><div class="k">Resource</div><div class="v teal" id="vRes">60</div></div>
+    <div class="st"><div class="k">Cred</div><div class="v" id="vCred">6</div></div>
+    <div class="st"><div class="k">Converted</div><div class="v green" id="vConv">0/12</div></div>
+    <div class="st"><div class="k">Resist</div><div class="v red" id="vResist">0</div></div>
+  </div>
+
+  <div class="stage">
+    <!-- ① 网络 -->
+    <section class="screen active" id="s1">
+      <div class="h1">这张网里，谁挡着你</div>
+      <div class="note">点一个人看他现在什么态度。青色已转化、紫色抵抗、灰色观望；线越粗影响越强。</div>
+      <div class="graph">
+        <div class="legend">
+          <span><i style="background:#6a7a7e"></i>观望</span>
+          <span><i style="background:#3a7abf"></i>知情</span>
+          <span><i style="background:#0d8b96"></i>认同</span>
+          <span><i style="background:#7b4fd4"></i>抵抗</span>
+          <span><i style="background:#3a9e38"></i>已转化</span>
+        </div>
+        <svg id="net" viewBox="0 0 460 440" aria-label="stakeholder network"></svg>
+      </div>
+      <div class="person" id="personCard">
+        <div class="n">点一个节点</div>
+        <div class="r">这里会显示他的角色、当前态度和隐藏顾虑</div>
+        <div class="d">游戏里这一块还会显示隐藏关系、影响权重，以及“他现在最在意什么”。</div>
+      </div>
+    </section>
+
+    <!-- ② 决策 -->
+    <section class="screen" id="s2">
+      <div class="h1">这一轮你做什么</div>
+      <div class="note">选一个动作，整行点一下就行。资源不够的动作会灰掉。</div>
+      <div id="actions"></div>
+    </section>
+
+    <!-- ③ 结果 -->
+    <section class="screen" id="s3">
+      <div class="h1" id="resTitle">这一轮发生了什么</div>
+      <div class="note" id="resSub">结果会在这里展开，讲清谁变了、为什么。</div>
+      <div class="res" id="resCard" style="display:none">
+        <div class="rt" id="resHead"></div>
+        <div class="deltas">
+          <div class="dl"><div class="k">Converted</div><div class="v green" id="dConv">+0</div></div>
+          <div class="dl"><div class="k">Resistance</div><div class="v red" id="dResist">+0</div></div>
+          <div class="dl"><div class="k">Score</div><div class="v teal" id="dScore">+0</div></div>
+        </div>
+        <div class="quote" id="resQuote"></div>
+        <div class="tags" id="resTags"></div>
+      </div>
+      <div class="ripple" id="ripple"></div>
+      <div class="nextbox" id="nextbox"></div>
+    </section>
+  </div>
+
+  <div class="foot">
+    <button class="cta" id="cta">看完了，去决策 →</button>
+    <div class="hint" id="hint">这一屏只有这一个按钮</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  'use strict';
+
+  // ── 数据（取自真实游戏的 13 个动作 / 13 个人物）──
+  var PEOPLE = [
+    {key:'ceo',      name:'Global CEO',              role:'总部最高决策者',    x:60,  y:40,  ties:['pm','cfo']},
+    {key:'pm',       name:'You',                     role:'集团首席可持续官',  x:60,  y:220, ties:['ceo','region']},
+    {key:'cfo',      name:'Global CFO',              role:'总部资源守门人',    x:230, y:40,  ties:['ceo']},
+    {key:'region',   name:'Regional General Manager',role:'区域桥梁人物',      x:145, y:130, ties:['pm','plant','ops']},
+    {key:'plant',    name:'Plant Manager',           role:'生产运营负责人',    x:60,  y:395, ties:['region','engineer','union']},
+    {key:'hr',       name:'HR Director',             role:'人力与行政负责人',  x:315, y:310, ties:['ops']},
+    {key:'sales',    name:'Sales Director',          role:'销售与客户负责人',  x:400, y:220, ties:['ops','customer']},
+    {key:'ops',      name:'Operations Director',     role:'运营管理负责人',    x:230, y:220, ties:['region','hr','sales']},
+    {key:'engineer', name:'Production Engineer',     role:'生产工程师',        x:145, y:310, ties:['plant','union']},
+    {key:'union',    name:'Union Representative',    role:'工会代表',          x:230, y:395, ties:['plant','engineer']},
+    {key:'gov',      name:'Key Worker Representative',role:'员工代表',         x:400, y:395, ties:['engineer']},
+    {key:'customer', name:'Key Account Manager',     role:'大客户经理',        x:315, y:130, ties:['sales','finance']},
+    {key:'finance',  name:'Financial Analyst',       role:'财务分析师',        x:400, y:40,  ties:['sales','customer']}
+  ];
+
+  var ACTIONS = [
+    {id:'interview',  g:'communicate',      label:'One-on-One Conversation',        cost:2, note:'一对一，最能松动个人顾虑'},
+    {id:'email',      g:'communicate',      label:'All-Staff ESG Briefing',         cost:1, note:'全员广播，覆盖面广但很浅'},
+    {id:'progress',   g:'communicate',      label:'Publish Progress Data',          cost:2, note:'公开进度，建立可信度'},
+    {id:'social',     g:'communicate',      label:'Informal Working Session',       cost:3, note:'非正式场合，顺带暴露隐藏关系'},
+    {id:'exemplify',  g:'demonstrate',      label:'Model the Change',               cost:2, note:'自己先做，发出组织信号'},
+    {id:'pilot',      g:'demonstrate',      label:'Pilot on One Line',              cost:3, note:'一条产线试点，用结果说话'},
+    {id:'story',      g:'demonstrate',      label:'Share Peer Benchmarks',          cost:1, note:'同行标杆，降低“只有我们在做”的抵触'},
+    {id:'external',   g:'enable',           label:'External ESG Training',          cost:3, note:'外部讲师，见效快但贵'},
+    {id:'internal',   g:'enable',           label:'Internal Green Champion Training',cost:2,note:'培养内部种子，慢但可持续'},
+    {id:'kpi',        g:'institutionalize', label:'Set ESG Targets and Deadlines',  cost:2, note:'定指标，强推但会激起抵抗'},
+    {id:'incentive',  g:'institutionalize', label:'Link Incentives to ESG',         cost:5, note:'动钱，最有效也最伤信任'},
+    {id:'recognize',  g:'institutionalize', label:'Recognize Early Movers',         cost:2, note:'表彰先行者，成本低'},
+    {id:'endorse',    g:'institutionalize', label:'Secure Board Endorsement',       cost:2, note:'拿到董事会背书，合法性最高'}
+  ];
+
+  var GROUPS = [
+    {id:'communicate',      label:'沟通 Communicate',        hint:'降低信息不对称'},
+    {id:'demonstrate',      label:'示范 Demonstrate',        hint:'用行动发出信号'},
+    {id:'enable',           label:'赋能 Enable',             hint:'补能力，不是补态度'},
+    {id:'institutionalize', label:'制度化 Institutionalize', hint:'改规则，最硬也最贵'}
+  ];
+
+  var GROUP_LETTER = {communicate:'C', demonstrate:'M', enable:'E', institutionalize:'I'};
+
+  // 每个动作最可能撬动的人（原型里的简化规则）
+  var TARGET_HINT = {
+    interview:['plant','hr','region'],
+    email:['engineer','gov','union'],
+    progress:['cfo','finance','ceo'],
+    social:['engineer','union','plant'],
+    exemplify:['region','ops','plant'],
+    pilot:['plant','ops','engineer'],
+    story:['ops','sales','customer'],
+    external:['hr','engineer','ops'],
+    internal:['hr','engineer','union'],
+    kpi:['ops','plant','sales'],
+    incentive:['sales','plant','union'],
+    recognize:['engineer','gov','customer'],
+    endorse:['ceo','cfo','region']
+  };
+
+  var NARRATIVE = {
+    communicate:'你把话说清楚了，但说得清楚不等于被说服——他点头的地方，正好是你没碰的那个顾虑。',
+    demonstrate:'行动比承诺更有说服力。他看到你真的在做，态度松了一点，但还在观望别人怎么反应。',
+    enable:'你补的是能力，不是态度。他学会了怎么做，接下来要看他愿不愿意做。',
+    institutionalize:'你动了规则。规则能压住行为，但压不住情绪——这一下有人被推着走了，也有人开始防着你。'
+  };
+
+  var state = {
+    round: 1, res: 60, cred: 6, score: 0,
+    status: {}, selected: null, lastResult: null, screen: 1
+  };
+  PEOPLE.forEach(function(p){ state.status[p.key] = p.key === 'pm' ? 4 : 0; });
+
+  var $ = function(id){ return document.getElementById(id); };
+
+  // ── 网络图 ──
+  var STATUS_COLOR = {0:'#6a7a7e', 1:'#3a7abf', 2:'#0d8b96', 3:'#7b4fd4', 4:'#3a9e38'};
+  var STATUS_NAME = {0:'观望', 1:'知情', 2:'认同', 3:'抵抗', 4:'已转化'};
+
+  function renderNet(){
+    var svg = $('net');
+    var parts = [];
+    var drawn = {};
+    PEOPLE.forEach(function(p){
+      p.ties.forEach(function(t){
+        var q = PEOPLE.find(function(x){ return x.key === t; });
+        if (!q) return;
+        var id = [p.key, q.key].sort().join('|');
+        if (drawn[id]) return;
+        drawn[id] = 1;
+        var strong = (p.key === 'pm' || q.key === 'pm');
+        parts.push('<line x1="' + p.x + '" y1="' + p.y + '" x2="' + q.x + '" y2="' + q.y + '" stroke="' +
+          (strong ? '#2f6f7c' : '#243d4a') + '" stroke-width="' + (strong ? 2.2 : 1.4) + '"/>');
+      });
+    });
+    PEOPLE.forEach(function(p){
+      var s = state.status[p.key];
+      var c = STATUS_COLOR[s];
+      var r = p.key === 'pm' ? 26 : 20;
+      var label = p.key === 'pm' ? 'You' : shortName(p.name);
+      parts.push(
+        '<g class="node" data-key="' + p.key + '">' +
+          '<circle cx="' + p.x + '" cy="' + p.y + '" r="' + r + '" fill="rgba(6,17,26,.92)" stroke="' + c + '" stroke-width="' + (p.key === 'pm' ? 2.4 : 1.8) + '"/>' +
+          '<text x="' + p.x + '" y="' + (p.y + 3.5) + '" text-anchor="middle" font-size="' + (p.key === 'pm' ? 11 : 8.6) + '" font-weight="700" fill="' + c + '">' + esc(label) + '</text>' +
+        '</g>'
+      );
+    });
+    svg.innerHTML = parts.join('');
+    Array.prototype.forEach.call(svg.querySelectorAll('.node'), function(g){
+      g.addEventListener('click', function(){ showPerson(g.getAttribute('data-key')); });
+    });
+  }
+
+  function shortName(n){
+    var m = {ceo:'CEO', cfo:'CFO', pm:'You'};
+    if (m[n]) return m[n];
+    return n.split(' ')[0].replace('Regional','Region').replace('Production','Prod').replace('Representative','Rep');
+  }
+  function esc(s){ return String(s).replace(/[&<>"]/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[c]; }); }
+
+  function showPerson(key){
+    var p = PEOPLE.find(function(x){ return x.key === key; });
+    if (!p) return;
+    Array.prototype.forEach.call(document.querySelectorAll('.node'), function(g){
+      g.classList.toggle('sel', g.getAttribute('data-key') === key);
+    });
+    var s = state.status[key];
+    var hidden = s === 0 ? '你还没跟他谈过，看不出他真正的顾虑。' : '他松口的条件是：先解决停机和成本，再谈路线图。';
+    $('personCard').innerHTML =
+      '<div class="n">' + esc(p.name) + '</div>' +
+      '<div class="r">' + esc(p.role) + '</div>' +
+      '<div class="d">' + esc(hidden) + '</div>' +
+      '<div class="badges"><span class="bdg" style="border-color:' + STATUS_COLOR[s] + '55;color:' + STATUS_COLOR[s] + '">' + STATUS_NAME[s] + '</span>' +
+      '<span class="bdg">影响力 ' + (p.key === 'ceo' || p.key === 'cfo' ? '高' : p.key === 'region' || p.key === 'ops' ? '中高' : '中') + '</span></div>';
+  }
+
+  // ── 动作列表 ──
+  function renderActions(){
+    var html = '';
+    GROUPS.forEach(function(g){
+      var list = ACTIONS.filter(function(a){ return a.g === g.id; });
+      html += '<div class="group"><div class="gh"><span class="gl">' + esc(g.label) + '</span><span class="gm">' + esc(g.hint) + '</span></div>';
+      list.forEach(function(a){
+        var poor = a.cost > state.res;
+        html += '<button class="act' + (state.selected === a.id ? ' sel' : '') + '" data-id="' + a.id + '"' + (poor ? ' disabled' : '') + '>' +
+          '<span class="rd"></span>' +
+          '<span class="ic">' + GROUP_LETTER[a.g] + '</span>' +
+          '<span class="tx"><span class="t1">' + esc(a.label) + '</span>' +
+          '<span class="t2">' + a.cost + ' 资源 · ' + esc(a.note) + (poor ? ' · 资源不够' : '') + '</span></span>' +
+        '</button>';
+      });
+      html += '</div>';
+    });
+    $('actions').innerHTML = html;
+    Array.prototype.forEach.call($('actions').querySelectorAll('.act'), function(b){
+      b.addEventListener('click', function(){
+        state.selected = b.getAttribute('data-id');
+        renderActions();
+        updateCta();
+      });
+    });
+  }
+
+  // ── 一轮结算（原型：规则简化）──
+  function execute(){
+    var a = ACTIONS.find(function(x){ return x.id === state.selected; });
+    if (!a || a.cost > state.res) return;
+
+    var before = snapshot();
+    var beforeStatus = {};
+    PEOPLE.forEach(function(p){ beforeStatus[p.key] = state.status[p.key]; });
+
+    state.res -= a.cost;
+
+    var pool = (TARGET_HINT[a.id] || []).filter(function(k){ return state.status[k] < 4; });
+    var fallback = PEOPLE.filter(function(p){ return p.key !== 'pm' && state.status[p.key] < 4; });
+    var tkey = pool[0] || (fallback[0] ? fallback[0].key : null);
+    var target = tkey ? PEOPLE.find(function(p){ return p.key === tkey; }) : null;
+
+    var conv = 0, resist = 0, gained = 0;
+    if (target) {
+      var strong = a.g === 'institutionalize' || a.g === 'enable';
+      var roll = Math.random();
+      if (roll < (strong ? 0.72 : 0.6)) {
+        state.status[target.key] = 4; conv = 1; gained = 10 + Math.round(Math.random() * 6);
+        state.score += gained;
+        // 已转化的人会带动相邻的人：涟漪
+        target.ties.forEach(function(k){
+          if (state.status[k] === 0 && Math.random() < 0.5) state.status[k] = 1;
+        });
+      } else if (strong && roll > 0.86) {
+        state.status[target.key] = 3; resist = 1;
+      } else {
+        state.status[target.key] = Math.min(3, state.status[target.key] + 1);
+      }
+    }
+    if (a.g === 'institutionalize' && Math.random() < 0.4) { state.cred -= 1; }
+    if (state.cred < 0) state.cred = 0;
+
+    var changes = [];
+    PEOPLE.forEach(function(p){
+      if (p.key === 'pm') return;
+      if (state.status[p.key] !== beforeStatus[p.key]) {
+        changes.push({name: p.name, from: beforeStatus[p.key], to: state.status[p.key], main: p.key === tkey});
+      }
+    });
+
+    state.lastResult = {
+      action: a, target: target, conv: conv, resist: resist, score: gained,
+      resSpent: a.cost, before: before, changes: changes
+    };
+  }
+
+  function snapshot(){
+    return {res: state.res, cred: state.cred, score: state.score};
+  }
+
+  function renderResult(){
+    var r = state.lastResult;
+    if (!r) return;
+    $('resCard').style.display = '';
+    var tname = r.target ? r.target.name : '没有人';
+    if (r.conv) $('resHead').textContent = tname + ' 被你说动了';
+    else if (r.resist) $('resHead').textContent = tname + ' 开始公开反对';
+    else $('resHead').textContent = tname + ' 松了一点，但还没站过来';
+
+    $('dConv').textContent = (r.conv ? '+1' : '+0');
+    $('dResist').textContent = (r.resist ? '+1' : '+0');
+    $('dScore').textContent = (r.score ? '+' + r.score : '+0');
+
+    $('resQuote').textContent = NARRATIVE[r.action.g] || '';
+    $('resTags').innerHTML =
+      '<span class="tag">' + GROUP_LETTER[r.action.g] + ' · ' + esc(r.action.label) + '</span>' +
+      '<span class="tag">用掉 ' + r.resSpent + ' 资源</span>' +
+      '<span class="tag">第 ' + state.round + ' 轮</span>';
+    $('resTitle').textContent = '第 ' + state.round + ' 轮的结果';
+    $('resSub').textContent = '一屏讲清发生了什么、为什么，然后直接回网络看涟漪。';
+
+    // 涟漪：这一下动了谁
+    var rp = '';
+    if (r.changes.length) {
+      rp += '<div class="rh"><span>这一下动了谁</span><em>' + r.changes.length + ' 人态度变了</em></div>';
+      r.changes.forEach(function(c){
+        rp += '<div class="rw"><i style="background:' + STATUS_COLOR[c.to] + '"></i>' +
+          '<span class="nm">' + esc(c.name) + (c.main ? ' · 主要对象' : '') + '</span>' +
+          '<span class="ch">' + STATUS_NAME[c.from] + ' → ' + STATUS_NAME[c.to] + '</span></div>';
+      });
+    } else {
+      rp += '<div class="rh"><span>这一下动了谁</span><em>没人改变</em></div>' +
+        '<div class="rw"><i style="background:#6a7a7e"></i><span class="nm">这一轮只是铺垫</span>' +
+        '<span class="ch">下轮换个人或换个方式</span></div>';
+    }
+    $('ripple').innerHTML = rp;
+
+    var left = PEOPLE.filter(function(p){ return p.key !== 'pm' && state.status[p.key] !== 4; }).length;
+    var cheap = ACTIONS.filter(function(a){ return a.cost <= state.res; }).length;
+    $('nextbox').innerHTML = '下一轮：还剩 <b>' + state.res + '</b> 资源，还有 <b>' + left + '</b> 个人没站过来，' +
+      '<b>' + cheap + '</b> 个动作做得起。资源越少，越要挑那个真正挡路的人。';
+  }
+
+  // ── 屏幕切换 ──
+  function goto(n){
+    state.screen = n;
+    ['s1','s2','s3'].forEach(function(id, i){
+      var el = $(id);
+      el.classList.toggle('active', i + 1 === n);
+    });
+    $('d1').className = 'dot ' + (n > 1 ? 'done' : 'on');
+    $('d1').textContent = n > 1 ? '✓' : '1';
+    $('d2').className = 'dot ' + (n > 2 ? 'done' : n === 2 ? 'on' : '');
+    $('d2').textContent = n > 2 ? '✓' : '2';
+    $('d3').className = 'dot ' + (n === 3 ? 'on' : '');
+    $('l1').className = 'line ' + (n > 1 ? 'done' : '');
+    $('l2').className = 'line ' + (n > 2 ? 'done' : '');
+    $('sl').textContent = n === 1 ? '先看网络' : n === 2 ? '再做决策' : '看结果';
+    $('sl').className = 'slabel on';
+    $('roundTag').textContent = '· 第 ' + state.round + ' 轮';
+    updateCta();
+  }
+
+  function updateCta(){
+    var cta = $('cta');
+    cta.disabled = false;
+    cta.className = 'cta';
+    if (state.screen === 1) {
+      cta.textContent = '看完了，去决策 →';
+      $('hint').textContent = '这一屏只有这一个按钮';
+    } else if (state.screen === 2) {
+      var a = ACTIONS.find(function(x){ return x.id === state.selected; });
+      cta.textContent = a ? ('执行 · 用 ' + a.cost + ' 资源') : '先选一个动作';
+      cta.disabled = !a;
+      $('hint').textContent = a ? '点了就直接出结果' : '选完才能点';
+    } else {
+      cta.textContent = '回到网络，看看涟漪 →';
+      cta.className = 'cta ghost';
+      $('hint').textContent = '下一轮 · 资源 ' + state.res;
+    }
+  }
+
+  function refreshStats(){
+    var conv = PEOPLE.filter(function(p){ return p.key !== 'pm' && state.status[p.key] === 4; }).length;
+    var res = PEOPLE.filter(function(p){ return state.status[p.key] === 3; }).length;
+    $('vRes').textContent = state.res;
+    $('vCred').textContent = state.cred;
+    $('vConv').textContent = conv + '/12';
+    $('vResist').textContent = res;
+    $('vRes').className = 'v ' + (state.res <= 10 ? 'red' : 'teal');
+  }
+
+  $('cta').addEventListener('click', function(){
+    if (state.screen === 1) { goto(2); renderActions(); }
+    else if (state.screen === 2) {
+      execute();
+      renderResult();
+      refreshStats();
+      renderNet();
+      goto(3);
+    } else {
+      state.round += 1;
+      state.selected = null;
+      renderActions();
+      goto(1);
+    }
+  });
+
+  // 初始化
+  renderNet();
+  renderActions();
+  refreshStats();
+  updateCta();
+})();
+</script>
+</body>
+</html>
