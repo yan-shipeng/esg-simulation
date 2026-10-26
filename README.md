@@ -1,30 +1,39 @@
-# ESG Transition Simulation
+# esg-simulation · ESG Transition Challenge（英文版入口）
 
-An in-class strategy simulation: you are the group's Chief Sustainability Officer, with 60 influence units to turn a signed net-zero pledge into changed operating practice across 12 stakeholders.
+线上地址：<https://yan-shipeng.github.io/esg-simulation/>
 
-Built on the same engine as *Corporate Integration Management* (Go Overseas). Same 12 roles, same network, same action set — the narrative, the stakeholders' hidden agendas and the endgame cases are rewritten for an ESG transition.
+## 这个仓库做什么
 
-## Live
+它是 `go-overseas` 的**完整副本**，结构与薄壳逻辑一模一样，只把内容换成了 ESG 版：
 
-- 静态版（本仓库，无排行榜）：<https://yan-shipeng.github.io/esg-simulation/>
-- 主入口（薄壳 → 带排行榜的服务端版）：<https://yan-shipeng.github.io/go-overseas/>
+```
+https://yan-shipeng.github.io/esg-simulation/        ← 本仓库（薄壳）
+  └─ iframe → https://5f0c8413195b44c8904b1162848d27ed.sg2.agentos-app.run/en   ← ESG 版（WorkBuddy Sites）
+```
 
-两个地址跑的是同一套 ESG 内容。`go-overseas` 那层薄壳用 iframe 指向 WorkBuddy Sites
-上的服务端版本，所以能跨设备记录排行榜；本仓库这份是纯静态备份，断网式兜底，
-排行榜不可用时会降级为本地会话。
+`go-overseas` 原样保留、互不影响，两边各有各的部署与排行榜数据。
 
-## What changed vs. the original
+## 与原版的关系
 
-- Branding: *Corporate Integration Management* → **ESG Transition Simulation**
-- Player role: Overseas Integration Lead → **Group Chief Sustainability Officer**
-- 12 stakeholders: job titles unchanged; descriptions and hidden goals rewritten for the ESG agenda (output vs. decarbonisation, jobs vs. transition, green premium vs. volume)
-- 13 actions: renamed and re-described (e.g. Private Interview → One-on-One Conversation, Announce KPIs → Set ESG Targets and Deadlines)
-- Random events: media coverage, energy-savings beat, retrofit stoppage, board softening the pledge
-- Debrief cases: Interface, Ørsted, Maersk / Unilever, DSM, Iberdrola / Volkswagen, BP, Boeing
-- Mechanics, scores, network topology and the 60-unit budget are **unchanged**
+| | go-overseas | esg-simulation（本仓库） |
+|---|---|---|
+| 主题 | Global Integration Challenge | ESG Transition Challenge |
+| 玩家角色 | Overseas Integration Lead | Group Chief Sustainability Officer |
+| 指向 | 原版英文部署 | ESG 版部署 |
+| 数据 | 各自独立 | 各自独立 |
 
-## Notes
+游戏本体（12 个 stakeholder、13 个动作、60 单位资源、结算案例）是同一套引擎，
+ESG 版把叙事、隐藏议程和结算案例做了改写，机制与分值不变。
 
-- The original front-end ships as a single minified bundle; source maps are not available. All edits are string-level replacements in `assets/index-BxBTfExN.js`, applied through the mapping tables in `_work/map*.py` (kept for traceability, not deployed).
-- The leaderboard is served by a tRPC + SQLite backend that GitHub Pages cannot run. On this static deployment the game detects the missing API and falls back to a local session: you can play and see your score, but results are not written to a shared leaderboard.
-- Routes are prefixed with `/esg-simulation/` because this is a project page, not a user page.
+## 部署
+
+纯静态，无需构建：把内容推到 `gh-pages` 分支，GitHub Pages 自动发布。
+
+> ⚠️ WorkBuddy Sites 每次重新发布会生成**新的域名**，届时需要同步更新
+> `index.html` 和 `leaderboard/index.html` 里的地址。
+
+## 说明
+
+- 页面本身不做任何逻辑，只有加载动画 + 一层 iframe，外加 12 秒兜底
+  （避免 iframe 已加载但 `onload` 未触发时加载层一直盖住画面）。
+- 排行榜由 WorkBuddy Sites 上的服务端提供，因此这里只做跳转/嵌入。
