@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>ESG Transition Simulation</title>
+    <script type="module" crossorigin src="/esg-simulation/assets/index-BxBTfExN.js"></script>
+    <link rel="stylesheet" crossorigin href="/esg-simulation/assets/index-Ctx_WYik.css">
+    <style>
+      html, body, #root {
+        min-height: 100vh;
+      }
+      /* ── 结算/结果页专用兜底：强制可滚动、不被裁剪 ──
+         注意：这里只针对「页面级」容器（body / #root / .h-screen / .min-h-screen），
+         不要用 #root > div > div 这种位置选择器——它会误伤页面内部的普通元素
+         （例如把结算页的标题栏强行撑到 100vh 高）。 */
+      body.on-result-page,
+      body.on-result-page #root {
+        overflow: visible !important;
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+      }
+      body.on-result-page .h-screen,
+      body.on-result-page .min-h-screen,
+      body.on-result-page .max-h-screen {
+        height: auto !important;
+        min-height: 100vh !important;
+        max-height: none !important;
+        overflow: visible !important;
+      }
+      /* 注意：绝不把 .h-full 全局强改成 100vh。
+         .h-full 是「填满父容器」的语义，页面里大量细进度条
+         （外层 h-1.5/h-2 + 内层 h-full rounded-full）依赖它。
+         强行改成 100vh 会让 6px 的进度条变成贯穿全屏的彩条
+         （曾出现青色竖条问题，见 2026-10-11 记录）。 */
+      body.on-result-page .h-full {
+        overflow: visible !important;
+      }
+      /* 保险：进度条内层永远保持「填满父容器」的高度 */
+      body.on-result-page .h-full.rounded-full,
+      body.on-result-page [class*="h-1"] > .h-full,
+      body.on-result-page [class*="h-2"] > .h-full,
+      body.on-result-page [class*="h-3"] > .h-full {
+        height: 100% !important;
+        min-height: 0 !important;
+        max-height: none !important;
+      }
+      /* 只解除「页面级」裁剪：不要动细高度元素上的 overflow-hidden，
+         否则进度条内层会溢出父容器（h-1.5 里的 h-full 会漏出来）。 */
+      body.on-result-page .overflow-hidden:not([class*="h-1"]):not([class*="h-2"]):not([class*="h-3"]):not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+      body.on-result-page .overflow-y-hidden:not([class*="h-1"]):not([class*="h-2"]):not([class*="h-3"]):not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]),
+      body.on-result-page .overflow-x-hidden:not([class*="h-1"]):not([class*="h-2"]):not([class*="h-3"]):not([class*="h-4"]):not([class*="h-5"]):not([class*="h-6"]) {
+        overflow: visible !important;
+        overflow-y: visible !important;
+        overflow-x: visible !important;
+      }
+      body.on-result-page .recharts-responsive-container {
+        max-height: 140px !important;
+      }
+      body.on-result-page .decision-footer,
+      body.on-result-page #mobileBottomNav,
+      body.on-result-page #mobileDecideCta {
+        display: none !important;
+      }
+    </style>
+  </head>
+  <body>
+    <script>(function(){var p=location.pathname;if(p==="/esg-simulation/"||p==="/esg-simulation/index.html"){location.replace("/esg-simulation/en");}})();</script>
+    <div id="root"></div>
+    <script>
+      // 修复：从简介页点击"Start Simulation/开始模拟"开始新游戏时，
+      // 清除上一局的结算数据，否则游戏页会直接跳到结算页面
+      (function() {
+        var startTexts = ['Start Simulation', '开始模拟', '开始游戏', '跳过介绍，直接开始游戏'];
+        document.addEventListener('click', function(e) {
+          var btn = e.target.closest('button');
+          if (!btn) return;
+          var text = (btn.textContent || '').trim();
+          for (var i = 0; i < startTexts.length; i++) {
+            if (text.indexOf(startTexts[i]) !== -1) {
+              localStorage.removeItem('en-outbound-game-result');
+              localStorage.removeItem('en-outbound-frozen-session');
+              localStorage.removeItem('en-outbound-session-id');
+              localStorage.removeItem('china-outbound-game-result');
+              localStorage.removeItem('china-outbound-frozen-session');
+              localStorage.removeItem('china-outbound-session-id');
+              break;
+            }
+          }
+        }, true);
+      })();
+    </script>
+    <script>
+      // 动态检测结算页：给 body 加 on-result-page 类，CSS 自动解除裁剪
+      (function() {
+        var resultMarks = [
+          'Total Score', 'My Results', 'Peer Comparison',
+          '这份成绩', '综合得分', '正在计算结果',
+          'Integration Successful', 'Change Stalled'
+        ];
+
+        function isResultPage() {
+          var bodyText = document.body.innerText || '';
+          for (var i = 0; i < resultMarks.length; i++) {
+            if (bodyText.indexOf(resultMarks[i]) !== -1) return true;
+          }
+          try {
+            if (localStorage.getItem('en-outbound-game-result') ||
+                localStorage.getItem('china-outbound-game-result')) {
+              return true;
+            }
+          } catch (_) {}
+          return false;
+        }
+
+        var lastState = null;
+        function check() {
+          var isResult = isResultPage();
+          if (isResult === lastState) return;
+          lastState = isResult;
+          if (isResult) {
+            document.body.classList.add('on-result-page');
+          } else {
+            document.body.classList.remove('on-result-page');
+          }
+        }
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', check);
+        } else {
+          check();
+        }
+        window.addEventListener('load', check);
+
+        var observer = new MutationObserver(check);
+        observer.observe(document.body, { childList: true, subtree: true });
+      })();
+    </script>
+  </body>
+</html>
