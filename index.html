@@ -50,19 +50,31 @@
     @keyframes sp { to { transform: rotate(360deg); } }
     #slow { display: none; margin-top: 4px; font-size: .85rem; color: #6f8b94; text-align: center; max-width: 30rem; line-height: 1.6; }
     #slow a { color: #0d8b96; }
+    /* 直接打开：加载慢时给一条不用等 iframe 的路 */
+    #direct {
+      display: none; margin-top: 6px;
+      padding: 10px 20px; border-radius: 999px;
+      border: 1px solid rgba(13,139,150,.55);
+      color: #6fd8dd; text-decoration: none;
+      font-size: .9rem; letter-spacing: .02em;
+    }
+    #direct.on { display: inline-block; }
+    #elapsed { font-size: .78rem; color: #4d6b77; letter-spacing: .06em; }
     noscript { display: block; padding: 24px; text-align: center; }
   </style>
 </head>
 <body>
   <div id="loading">
     <div class="spin"></div>
-    <div>Loading ESG simulation…</div>
-    <div id="slow">The simulation server is taking longer than usual to wake up.
-      <a href="./">Reload</a> in a moment.</div>
+    <div id="msg">Loading ESG simulation…</div>
+    <div id="slow">Waking the game server — this can take a few seconds the first time.
+      <a href="./">Reload</a></div>
+    <a id="direct" href="https://32125d7876904a57b652686f4910eeb9.sg2.agentos-app.run/esg/en" target="_top" rel="noopener">Open it directly →</a>
+    <div id="elapsed"></div>
   </div>
   <iframe
     id="app"
-    src="https://190492dc8dc3403da15a497b5fceae7d.sg2.agentos-app.run/esg/en"
+    src="https://32125d7876904a57b652686f4910eeb9.sg2.agentos-app.run/esg/en"
     title="ESG Transition Challenge"
     allow="fullscreen"
     referrerpolicy="no-referrer-when-downgrade"
@@ -70,17 +82,38 @@
   ></iframe>
   <noscript>This simulation requires JavaScript. Please enable it and reload.</noscript>
   <script>
-    /* Failsafe: never leave the spinner covering a page that actually loaded. */
-    setTimeout(function () {
+    /* 加载态分三段：先等，再解释，最后给一条直连。
+       之前只有一句 "Loading…"，慢的时候看起来就是卡死了。 */
+    (function () {
+      var t0 = Date.now();
+      var msg = document.getElementById('msg');
+      var slow = document.getElementById('slow');
+      var direct = document.getElementById('direct');
+      var elapsed = document.getElementById('elapsed');
       var l = document.getElementById('loading');
-      if (!l) return;
-      if (window.__appLoaded) {
-        l.classList.add('hidden');
-      } else {
-        var slow = document.getElementById('slow');
-        if (slow) slow.style.display = 'block';
-      }
-    }, 12000);
+
+      var tick = setInterval(function () {
+        if (window.__appLoaded) { clearInterval(tick); return; }
+        var s = Math.round((Date.now() - t0) / 1000);
+        elapsed.textContent = s + 's';
+        if (s >= 5) { msg.textContent = 'Still loading…'; slow.style.display = 'block'; }
+        if (s >= 12) {
+          msg.textContent = 'Taking longer than usual';
+          direct.classList.add('on');
+        }
+      }, 1000);
+
+      /* 20 秒还没起来：自动重载一次（只一次，避免循环） */
+      setTimeout(function () {
+        if (window.__appLoaded) return;
+        try {
+          if (!sessionStorage.getItem('esg-retried')) {
+            sessionStorage.setItem('esg-retried', '1');
+            location.reload();
+          }
+        } catch (e) {}
+      }, 20000);
+    })();
   </script>
 </body>
 </html>
