@@ -71,7 +71,7 @@
   </div>
   <iframe
     id="app"
-    src="https://c1831040494842948dd5cf454bf85179.sg2.agentos-app.run/esg/en"
+    src="https://1eec9dd15a6742808056c1907a008174.sg2.agentos-app.run/esg/en"
     title="ESG Transition Challenge"
     allow="fullscreen"
     referrerpolicy="no-referrer-when-downgrade"
@@ -82,11 +82,20 @@
     /* 当前游戏地址从这里读，不再写死在页面里。
        每次重新发布游戏，只需要改 current.json 一行，这个入口页就跟着走。 */
     (function () {
-      var FALLBACK = 'https://c1831040494842948dd5cf454bf85179.sg2.agentos-app.run/esg/en';
+      var FALLBACK = 'https://1eec9dd15a6742808056c1907a008174.sg2.agentos-app.run/esg/en';
       var frame = document.getElementById('app');
+      var COURSE = '';
+      try { COURSE = (new URLSearchParams(location.search).get('c') || '').trim(); } catch (e) { COURSE = ''; }
+      if (COURSE && COURSE.toLowerCase() !== 'all') {
+        var m = document.getElementById('msg');
+        if (m) m.textContent = 'Loading ' + COURSE + ' leaderboard…';
+      }
 
       function apply(url) {
         if (!url || typeof url !== 'string' || url.indexOf('http') !== 0) return;
+        /* 课程维度：本页链接带 ?c=xxx 时透传给游戏，游戏据此只看本课的榜。
+           例：?c=ESG → 只显示 ESG 这门课的成绩；?c=all 或不带 → 全部。 */
+        if (COURSE) url += (url.indexOf('?') >= 0 ? '&' : '?') + 'c=' + encodeURIComponent(COURSE);
         if (frame.getAttribute('src') !== url) frame.src = url;
       }
 
