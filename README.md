@@ -9,7 +9,7 @@
 
 ```
 https://yan-shipeng.github.io/esg-simulation/        ← 本仓库（薄壳）
-  └─ iframe → https://f7cc2a13b74e4c6dad66277ca229efcb.sg2.agentos-app.run/esg/en
+  └─ iframe → https://1e646165b2834aff81fd422de9b6482e.sg2.agentos-app.run/esg/en
 ```
 
 ## 与原版的关系
