@@ -88,7 +88,7 @@
       try { COURSE = (new URLSearchParams(location.search).get('c') || '').trim(); } catch (e) { COURSE = ''; }
       if (COURSE && COURSE.toLowerCase() !== 'all') {
         var m = document.getElementById('msg');
-        if (m) m.textContent = 'Loading ' + COURSE + ' leaderboard…';
+        if (m) m.textContent = 'Loading ' + COURSE + ' simulation…';
       }
 
       function apply(url) {
