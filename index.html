@@ -71,7 +71,7 @@
   </div>
   <iframe
     id="app"
-    src="https://78701606623f48b18f877315adf995ed.sg2.agentos-app.run/esg/en"
+    src="https://4967d54267ec48b2b4eb55260811828a.sg2.agentos-app.run/esg/en"
     title="ESG Transition Challenge"
     allow="fullscreen"
     referrerpolicy="no-referrer-when-downgrade"
@@ -82,10 +82,13 @@
     /* 当前游戏地址从这里读，不再写死在页面里。
        每次重新发布游戏，只需要改 current.json 一行，这个入口页就跟着走。 */
     (function () {
-      var FALLBACK = 'https://78701606623f48b18f877315adf995ed.sg2.agentos-app.run/esg/en';
+      var FALLBACK = 'https://4967d54267ec48b2b4eb55260811828a.sg2.agentos-app.run/esg/en';
       var frame = document.getElementById('app');
       var COURSE = '';
       try { COURSE = (new URLSearchParams(location.search).get('c') || '').trim(); } catch (e) { COURSE = ''; }
+      /* 不带参数时默认就是本课（ESG），这样即使有人直接打开这个入口页、
+         或者从书签进来，看到的也是 ESG 榜，不会掉进战略课的总榜。 */
+      if (!COURSE) COURSE = 'ESG';
       if (COURSE && COURSE.toLowerCase() !== 'all') {
         var m = document.getElementById('msg');
         if (m) m.textContent = 'Loading ' + COURSE + ' simulation…';
