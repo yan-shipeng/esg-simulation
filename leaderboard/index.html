@@ -15,7 +15,7 @@
   <script>
     /* 地址从 current.json 读，和首页保持一致；读不到就用内置兜底。 */
     (function () {
-      var FALLBACK = 'https://97a325050ea74a58b3a97da6b0956715.sg2.agentos-app.run/esg/en/leaderboard';
+      var FALLBACK = 'https://469e0ea8b9ee4af68a56de79be9ec0ef.sg2.agentos-app.run/esg/en/leaderboard';
       function go(url) { location.replace(url); }
       fetch('../current.json?t=' + Date.now(), { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })
