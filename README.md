@@ -2,6 +2,15 @@
 
 线上地址：<https://yan-shipeng.github.io/esg-simulation/>
 
+## 固定约定（不要改）
+
+> **这个链接永远是 ESG 排名。**
+> `https://yan-shipeng.github.io/esg-simulation/` → ESG Transition Challenge，
+> 排行榜只读 `esg.db` 的 `en_sessions`（courseKey = `esg`）。
+> 战略课的老成绩（courseKey = `strategy`）属于原版游戏，不要搬进来。
+>
+> 对应地：`https://yan-shipeng.github.io/go-overseas/` 永远是战略执行排名，只读 `game.db`。
+
 ## 这个仓库做什么
 
 它是 `go-overseas` 的**完整副本**：同样的薄壳、同样的加载动画、同样的排行榜跳转页，
