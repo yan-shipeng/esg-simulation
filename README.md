@@ -1,59 +1,10 @@
-# esg-simulation · ESG Transition Challenge（英文版入口）
+# esg-simulation
 
-线上地址：<https://yan-shipeng.github.io/esg-simulation/>
+NORTHSTAR ESG 转型模拟器（3D 园区 / 8 回合 / 中英切换）。
 
-## 固定约定（不要改）
+- 线上：https://yan-shipeng.github.io/esg-simulation/ （`gh-pages` 分支，构建产物放在根目录）
+- 源码：本分支 `source/`，Vite + React + TS
+- 本地开发：`cd source && npm install && npm run dev`
+- 重新构建：`cd source && npm run build`，把 `source/dist/*` 覆盖到 `gh-pages` 分支根目录
 
-> **这个链接永远是 ESG 排名。**
-> `https://yan-shipeng.github.io/esg-simulation/` → ESG Transition Challenge，
-> 排行榜只读 `esg.db` 的 `en_sessions`（courseKey = `esg`）。
-> 战略课的老成绩（courseKey = `strategy`）属于原版游戏，不要搬进来。
->
-> 对应地：`https://yan-shipeng.github.io/go-overseas/` 永远是战略执行排名，只读 `game.db`。
-
-## 这个仓库做什么
-
-它是 `go-overseas` 的**完整副本**：同样的薄壳、同样的加载动画、同样的排行榜跳转页，
-只把内容换成了 ESG 版。
-
-```
-https://yan-shipeng.github.io/esg-simulation/        ← 本仓库（薄壳）
-  └─ iframe → https://0d601c7ca3a341888b4b848e75165b0c.sg2.agentos-app.run/esg/en
-```
-
-## 与原版的关系
-
-| | go-overseas | esg-simulation（本仓库） |
-|---|---|---|
-| 主题 | Global Integration Challenge | ESG Transition Challenge |
-| 玩家角色 | Overseas Integration Lead | Group Chief Sustainability Officer |
-| 路径 | `/en` | `/esg/en` |
-| 排行榜 | `game.db` | `esg.db` |
-
-游戏本体（12 个 stakeholder、13 个动作、60 单位资源、结算案例）是同一套引擎，
-ESG 版把叙事、隐藏议程和结算案例做了改写，机制与分值不变。
-
-两个站点**共用同一台服务**（同一个 WorkBuddy Sites 应用），只是路径前缀不同：
-
-```
-https://<deployment>/en        ← 原版（go-overseas 指向这里）
-https://<deployment>/esg/en    ← ESG 版（本仓库指向这里）
-```
-
-两边的成绩分别存在 `game.db` 和 `esg.db`，互不干扰。
-
-> 之所以合并成一台服务：平台同一时间只保留一个在跑的部署，
-> 两个独立应用会互相把对方挤下线。
-
-## 部署
-
-纯静态，无需构建：把内容推到 `gh-pages` 分支，GitHub Pages 自动发布。
-
-> ⚠️ WorkBuddy Sites 每次重新发布会生成**新的域名**，届时需要同步更新
-> `index.html` 和 `leaderboard/index.html` 里的地址（`go-overseas` 那边也要改）。
-
-## 说明
-
-- 页面本身不做任何逻辑，只有加载动画 + 一层 iframe，外加 12 秒兜底
-  （避免 iframe 已加载但 `onload` 未触发时加载层一直盖住画面）。
-- 排行榜由服务端提供，因此这里只做跳转/嵌入。
+早期版本曾用「壳页 iframe 指向临时沙箱」的方式部署，沙箱回收后整站白屏；现在改为自包含静态文件，不再依赖任何外部托管。
