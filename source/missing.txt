@@ -1,0 +1,31 @@
+人
+分
+因
+第
+、制度
+、赋能
+、验证
+）：剩
+，一个
+，当前
+你裁掉了
+趋势">
+、压力高达
+可信度仍有
+可信度只剩
+可信度跌至
+可信度还有
+\n\n你在第
+">📊 关键信息
+">\n            💳 信誉不足 · 有代价
+;\n  // v17: 表彰的误用预警\n  if(a.id===
+：保留原团队、避免大规模派驻，用业绩和文化耐心实现相对成功整合。\n▶
+" width="100%" aria-label="完全配合率曲线">
+对非正式关系。这些关系是复利资产：它们不会随回合衰减，后面的每一次扩散都会经过它们放大。
+：以下每回合会自己冷掉，以上不再掉分。\n            你需要把他们一步步推进。
+" font-size="9" text-anchor="middle" fill="var(--muted)">回合
+);\n  // 弹窗仅用于每回合反馈——局终结算已移至结局页\n  if(normalActions) normalActions.style.display =
+; render(); return; }\n  // v39：内部培训——第一个点的是讲师，必须已经转化；完全配合的人不占学员名额\n  if(a.roleMode===
+;\n  document.body.appendChild(d);\n  // 直接上屏：淡入交给内部元素的入场动画，overlay 本身不再做 opacity 过渡\n  d.classList.add(
+<span class="disabled-badge" style="background:rgba(224,138,58,.15);color:#e08a3a;border-color:rgba(224,138,58,.4)" title="信誉不足（建议
++prefEv.pref.toFixed(2));\n      // v48：档位已经给出了明确解释，就别再补一句"说不上为什么"——两个原因会互相打架\n      else if(!stageEv && Math.abs(prefEv.pref-1)>=0.15) reasons.push(

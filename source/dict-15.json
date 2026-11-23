@@ -1,0 +1,16 @@
+{
+  "状态": " Status ",
+  "变化": " Change ",
+  "为什么": " Why ",
+  "消耗 ${c} 资源（${n} 人，起步价 ${b}），剩余 ${l} / ${t} 资源": "Cost: ${c} resources (${n} targeted, base ${b}) · left: ${l} / ${t}",
+  "消耗 ${c} 资源，剩余 ${l} / ${t} 资源": "Cost: ${c} resources · left: ${l} / ${t}",
+  "消耗 ${c} 资源（无效果），剩余 ${l} / ${t}": "Cost: ${c} resources (no effect) · left: ${l} / ${t}",
+  "全员覆盖": "Everyone",
+  "定向推动 ${n} 人": "Targeted push on ${n}",
+  "全员覆盖 · 消耗 ${c} 资源": "Everyone · cost: ${c} resources",
+  "定向推动 ${n} 人 · 消耗 ${c} 资源": "Targeted: ${n} people · cost: ${c} resources",
+  "对象：${t} · 消耗 ${w} 资源 · 剩余 ${l} 资源": "Targets: ${t} · cost: ${w} · left: ${l}",
+  "对象：${t} · 消耗 ${w} 资源（剩余 ${l} 资源）": "Targets: ${t} · cost: ${w} (left: ${l})",
+  "（面向全体）": "(everyone)",
+  "起步价": "base"
+}

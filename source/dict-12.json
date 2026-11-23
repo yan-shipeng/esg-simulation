@@ -1,0 +1,16 @@
+{
+  "教科书级": "Textbook",
+  "漂亮": "Great",
+  "及格": "Pass",
+  "勉强": "Barely",
+  "没落地": "Didn't land",
+  "节奏分 · 用了 ${a} 回合（基准 ${b} 回合，每多 2 回合 −1，满分 ${c}）": "Pacing · took ${a} rounds (par ${b}, −1 per extra 2 rounds, max ${c})",
+  "节奏分 · 第 ${a} 回合到达标线（定格，基准 ${b} 回合，满分 ${c}）": "Pacing · reached the line on round ${a} (locked, par ${b}, max ${c})",
+  "成果分 · 完全配合 ${a} 人（达标线 ${b} 人，每多 1 人 +${c}）": "Outcome · ${a} fully on board (bar: ${b}, +${c} per extra person)",
+  "效率分 · 剩余 ${a} 资源（满分 ${b}）": "Efficiency · ${a} resources left (max ${b})",
+  "组织分 · (可信度 ${a} − 压力 ${b}) × ${c}（满分 ${d}）": "Org health · (credibility ${a} − pressure ${b}) × ${c} (max ${d})",
+  "里程碑分 · ${a} 个关键节点 × ${b}（满分 ${c}）": "Milestones · ${a} key moments × ${b} (max ${c})",
+  "你整局没有动过制度类动作（调整奖惩 / 调整汇报关系）。": "You never touched institutional levers (adjust incentives / adjust reporting lines).",
+  "没有动制度": "No institutional levers",
+  "你整局没有动过制度类动作（调整奖惩 / 调整汇报关系）。人际说服能推到 50 分，但 50→85 这一段靠说是不动的——它需要改变「做与不做的后果」。代价是压力，但没有它，最后一跳永远差一口气。": "You never touched institutional levers (adjust incentives / adjust reporting lines). Persuasion alone gets you to 50, but talking can't carry 50→85 — that stretch requires changing the consequences of doing versus not doing. The cost is pressure, yet without it the final leap always falls just short."
+}
