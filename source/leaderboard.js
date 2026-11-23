@@ -61,7 +61,9 @@ function ensureButton(){
   b.id = 'lbBtn'; b.type = 'button'; b.textContent = '🏆 积分榜';
   b.setAttribute('aria-label','全球积分榜 Global Leaderboard');
   b.addEventListener('click', openPanel);
-  document.body.appendChild(b);
+  /* v119：不浮动——放进顶栏操作区（没有则退回 body） */
+  const host = document.getElementById('topbarActions');
+  (host || document.body).appendChild(b);
 }
 
 /* ── UI: modal panel ── */

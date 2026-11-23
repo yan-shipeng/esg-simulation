@@ -397,6 +397,8 @@ function applyLang(next, first){
   }
   const btn = document.getElementById('langToggleBtn');
   if(btn) btn.textContent = (lang === 'en') ? '中文' : 'EN';
+  const introBtn = document.getElementById('langToggleIntro');
+  if(introBtn) introBtn.textContent = (lang === 'en') ? '中文' : 'EN';
   /* v115：语言切换会改变标签栏按钮的字体与折行，高度可能变——复测量再定位推进栏 */
   try{ if(typeof syncTabbarMetrics === 'function') setTimeout(syncTabbarMetrics, 60); }catch(_){}
 }
@@ -410,7 +412,12 @@ function ensureButton(){
   btn.textContent = (lang === 'en') ? '中文' : 'EN';
   btn.setAttribute('aria-label', 'Switch language / 切换语言');
   btn.addEventListener('click', () => applyLang(lang === 'en' ? 'zh' : 'en'));
-  document.body.appendChild(btn);
+  /* v119：不浮动——放进顶栏操作区（没有则退回 body） */
+  const host = document.getElementById('topbarActions');
+  (host || document.body).appendChild(btn);
+  /* v122：开场页的同款按钮——点击走同一个切换，标签由 applyLang 统一刷新 */
+  const introBtn = document.getElementById('langToggleIntro');
+  if(introBtn) introBtn.addEventListener('click', () => applyLang(lang === 'en' ? 'zh' : 'en'));
 }
 
 /* ── public api ────────────────────────────────────────────────── */
@@ -427,7 +434,10 @@ function boot(){
   ensureButton();
   startObserver();
   if(lang === 'en') applyLang('en', true);
-  else { const btn = document.getElementById('langToggleBtn'); if(btn) btn.textContent = 'EN'; }
+  else {
+    const btn = document.getElementById('langToggleBtn'); if(btn) btn.textContent = 'EN';
+    const ib = document.getElementById('langToggleIntro'); if(ib) ib.textContent = 'EN';
+  }
 }
 if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
 else boot();

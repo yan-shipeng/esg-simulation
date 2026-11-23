@@ -136,17 +136,15 @@ css = '''
     /* English mode: translate CSS pseudo-element labels in the result table (DOM engine can't reach CSS content) */
     html[lang="en"] .impact-table td:nth-child(3)::before{content:'Buy-in '}
     html[lang="en"] .impact-table td:nth-child(5)::before{content:'Why: '}
-    /* i18n toggle button */
-    #langToggleBtn{position:fixed;top:14px;right:16px;z-index:99999;padding:7px 15px;border-radius:999px;
+    /* i18n toggle button — v119: sits in the top bar next to the other actions, not floating */
+    #langToggleBtn{position:static;padding:6px 12px;border-radius:9px;
       border:1px solid rgba(255,255,255,.18);background:rgba(13,30,42,.92);color:#d8eef4;
-      font:600 13px 'Noto Sans SC',sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.35);
-      backdrop-filter:blur(6px);transition:all .18s ease}
+      font:600 12px 'Noto Sans SC',sans-serif;cursor:pointer;transition:all .18s ease;white-space:nowrap}
     #langToggleBtn:hover{border-color:#0d8b96;background:rgba(13,139,150,.3);color:#fff}
-    /* leaderboard floating button (sits under the language toggle) */
-    #lbBtn{position:fixed;top:56px;right:16px;z-index:99999;padding:7px 15px;border-radius:999px;
+    /* leaderboard button — v119: same top-bar treatment */
+    #lbBtn{position:static;padding:6px 12px;border-radius:9px;
       border:1px solid rgba(255,255,255,.18);background:rgba(13,30,42,.92);color:#d8eef4;
-      font:600 13px 'Noto Sans SC',sans-serif;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,.35);
-      backdrop-filter:blur(6px);transition:all .18s ease}
+      font:600 12px 'Noto Sans SC',sans-serif;cursor:pointer;transition:all .18s ease;white-space:nowrap}
     #lbBtn:hover{border-color:#0d8b96;background:rgba(13,139,150,.3);color:#fff}
     /* leaderboard modal */
     #lbOverlay{position:fixed;inset:0;z-index:100000;display:none;align-items:center;justify-content:center;
