@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ESG 合规转型模拟</title>
+  <title>ESG 转型模拟</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700;800&display=swap" rel="stylesheet">
@@ -701,7 +701,7 @@
 <div class="app">
   <div class="topbar">
     <div>
-      <div class="title">ESG 合规转型模拟</div>
+      <div class="title">ESG 转型模拟</div>
       <div class="sub" id="learnerBadge" style="display:none"></div>
     </div>
     <div id="topbarActions" style="display:none;gap:8px;flex-wrap:wrap">
@@ -1364,11 +1364,10 @@
         <!-- ── Slide 1: Cinematic open ── -->
         <div class="intro-slide active anim-in" id="iSlide1">
           <div class="intro-eyebrow">任务简报</div>
-          <h1 class="intro-h1">你临危受命<br>推动一场<em>ESG 合规转型。</em></h1>
+          <h1 class="intro-h1">新战略已经拍板<br>轮到你来<em>执行落地。</em></h1>
           <p class="intro-lead">
-            集团在欧盟的工厂迎来大考：CSRD 披露与碳关税（CBAM）倒计时已经开始。<br>
-            客户、投资者和监管都在要数据，当地 <strong>12 位关键人物</strong>各有立场、各有算盘。<br>
-            你的任务：在 <strong><span class="js-res-total">60</span> 个资源</strong>内让他们真正接受 ESG 转型。
+            集团在欧盟的工厂迎来大考：<strong>CSRD</strong>（欧盟可持续发展报告指令）要求披露可审计的 ESG 数据，<strong>碳关税（CBAM）</strong>开始对进口商品按碳排放收费。监管、客户和投资者都在要数据——不行动就意味着罚款、丢订单、融资成本上升。<br>
+            董事会已经做出决定：把 ESG 从成本项升级为集团新战略。你是总部派驻的 <strong>ESG 转型负责人</strong>——在 <strong><span class="js-res-total">60</span> 个资源</strong>内，让当地 <strong>12 位关键人物</strong>真正把新战略执行下去。
           </p>
           <div class="intro-stats">
             <div class="intro-stat"><span class="intro-stat-num js-res-total" data-count="60">60</span><span class="intro-stat-label">可用资源</span></div>
@@ -2091,7 +2090,7 @@
     <section class="screen" id="screen-task">
       <div class="hero">
         <h2>任务回顾 <span id="currentRoleBadge" class="badge" style="margin-left:8px;background:var(--primary-light);color:var(--primary);font-weight:600">🌱 ESG 转型负责人</span></h2>
-        <p id="roleBriefingText" style="margin:8px 0">你是集团欧洲工厂的 ESG 转型负责人。CSRD 与碳关税（CBAM）大限临近，总部希望在 60 个资源内让当地组织真正把 ESG 合规体系落地。</p>
+        <p id="roleBriefingText" style="margin:8px 0">你是集团欧洲工厂的 ESG 转型负责人。面对 CSRD 与碳关税（CBAM），董事会已把 ESG 定为集团新战略；总部希望你在 60 个资源内，让当地组织真正把新战略执行落地。</p>
         <div class="small" id="roleGoalText" style="padding:8px 12px;background:var(--primary-light);border-left:3px solid var(--primary);border-radius:4px"><strong>你的目标：</strong>在 60 个资源内让 ≥50% 的关键人物真正进入「完全配合」状态。过了 50% 就算达标——收工还是继续推，你自己判断。</div>
         <div class="badges" style="margin-top:12px"><span class="badge">先理解任务</span><span class="badge">再看社会网络</span><span class="badge">然后做决策</span></div>
         <div class="small muted" style="margin-top:10px">看完就点右下角那颗按钮——它会一直带着你往下走。</div>
@@ -2320,7 +2319,7 @@ const PEOPLE={
   ceo:{name:'总部CEO',role:'总部最高决策者',desc:'总部最高决策者，能提供公开背书，也决定这个项目的预算与时间表。',faction:'总部',score:18,status:0,x:40,y:30,ties:['pm','cfo'],hidden_ties:[],
     hidden_goal:'兑现对董事会和投资者的 ESG 承诺，避免漂绿丑闻',
     prefs:{'试点':0.25,'政治':0.20,'对话':-0.15,'沟通':-0.05}},
-  pm:{name:'你',role:'ESG 转型负责人',desc:'跨总部与当地组织协调推进 ESG 合规落地，是整个转型的发起者。',score:100,status:4,x:140,y:75,ties:['ceo','region'],hidden_ties:[],
+  pm:{name:'你',role:'ESG 转型负责人',desc:'受董事会委托，在当地组织推动 ESG 新战略落地，是整个转型的执行者。',score:100,status:4,x:140,y:75,ties:['ceo','region'],hidden_ties:[],
     hidden_goal:'在总部要求与当地合法性之间找到平衡',
     prefs:{}},
   cfo:{name:'总部CFO',role:'总部资源把关人',desc:'总部资源把关人，掌管预算、碳关税成本测算与财务口径。',faction:'总部',score:12,status:0,x:40,y:120,ties:['ceo'],hidden_ties:['region'],
@@ -2964,7 +2963,7 @@ const ROLES = {
     id:'integrator',
     name:'ESG 转型负责人',
     tag:'总部派驻 · ESG 转型',
-    briefing:`你是集团欧洲工厂的 ESG 转型负责人。CSRD 与碳关税（CBAM）大限临近，总部希望在 ${TOTAL_RESOURCES} 个资源内让当地组织真正把 ESG 合规体系落地。`,
+    briefing:`你是集团欧洲工厂的 ESG 转型负责人。面对 CSRD 与碳关税（CBAM），董事会已把 ESG 定为集团新战略；总部希望你在 ${TOTAL_RESOURCES} 个资源内，让当地组织真正把新战略执行落地。`,
     goal:`在 ${TOTAL_RESOURCES} 个资源内让 ≥50% 的关键人物真正进入「完全配合」状态，同时尽量维持组织承受力。过了 50% 就算达标——收工还是继续推，你自己判断。资源省、回合少，都算分。`,
     startCred:6,
     startPressure:0,
@@ -6604,7 +6603,7 @@ function exportGamePdf(){
 <head>
 <meta charset="utf-8">
 ${pdfI18nHead}
-<title>ESG 合规转型模拟 · PDF 报告 · ${escapeHtml(state.learnerName||'用户')}<\/title>
+<title>ESG 转型模拟 · PDF 报告 · ${escapeHtml(state.learnerName||'用户')}<\/title>
 <style>
   @page { size: A4; margin: 14mm 12mm; }
   *{box-sizing:border-box}
@@ -6650,7 +6649,7 @@ ${pdfI18nHead}
   <div class="print-hint">🖨️ 在弹出的打印窗口中选择「另存为 PDF」
     <button onclick="window.print()">重新打印<\/button><\/div>
   <div class="cover">
-    <h1>🎫 ESG 合规转型模拟 · PDF 报告<\/h1>
+    <h1>🎫 ESG 转型模拟 · PDF 报告<\/h1>
     <dl class="meta">
       <dt>姓名<\/dt><dd>${escapeHtml(state.learnerName||'（未填写）')}<\/dd>
       <dt>角色<\/dt><dd>${escapeHtml(roleName)}<\/dd>

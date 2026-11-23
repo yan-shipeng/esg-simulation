@@ -1,4 +1,4 @@
-# ESG 合规转型模拟 · ESG Compliance Transformation Simulation
+# ESG 转型模拟 · ESG Compliance Transformation Simulation
 
 线上地址：<https://yan-shipeng.github.io/esg-simulation/>（`gh-pages` 分支，自包含单文件）
 
