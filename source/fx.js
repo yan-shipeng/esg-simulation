@@ -131,6 +131,13 @@ css.textContent = [
   'canvas.fx-replay-cv{display:block;width:100%;height:320px;background:rgba(3,10,15,.55);border-radius:10px}',
   '.fx-replay-track{height:5px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:8px;cursor:pointer}',
   '.fx-replay-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0d8b96,#2f9e5f);border-radius:3px}',
+  /* 网络推进过场（全屏） */
+  '.fx-netcine{position:fixed;inset:0;z-index:990;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;background:rgba(3,9,14,.94);opacity:0;transition:opacity .3s ease;pointer-events:none}',
+  '.fx-netcine.on{opacity:1}',
+  '.fx-netcine canvas{width:min(1100px,94vw);height:min(640px,72vh);display:block}',
+  '.fx-netcine-cap{display:flex;align-items:baseline;gap:12px}',
+  '.fx-netcine-kicker{font-size:12px;letter-spacing:4px;color:#6fd8a0;font-weight:700}',
+  '.fx-netcine-action{font-size:20px;font-weight:800;color:#eaf6ef}',
   /* 减少动态：全停 */
   '@media (prefers-reduced-motion: reduce){.screen.active,.kpi .num.fx-pop,.fx-glass,.fx-holo,.svg-wrapper .node,.fx-ms,.fx-wipe i{animation:none!important}}'
 ].join('\n');
@@ -408,51 +415,170 @@ function netWave(entry, id, color, power){
 /* ═══ 回合触发动画：结算弹窗关闭后，立刻从网络角度回放这一回合 ═══
    能量从「你」错峰流向每个被触及的人，到达时冲击波 + 节点头顶浮出 ±N；
    升档金环 / 降档红环。每个 lastImpact 只播一次；结局页有完整战局回放，不重复播。 */
-let turnFxLast = null;
-function fxPlayTurnImpact(fast){
-  if(REDUCE || typeof state === 'undefined' || !state || state.ended) return;
+/* 网络推进过场：全屏播放本回合动作如何沿网络扩散（替代原全屏过场）。
+   点击「执行决策」后铺满屏幕的大网络图上：能量从「你」错峰流向每个被触及的人，
+   到达时冲击波 + 头顶浮出 ±N，升档金环/降档红环。 */
+const NETCINE_MS = 2600;
+function playNetCinematic(a){
+  if(REDUCE || typeof state === 'undefined' || !state) return;
+  const P = state.people;
   const li = state.lastImpact;
-  if(!li || turnFxLast === li) return;
-  const rows = (li.people || []).filter(r => state.people[r.id] && !state.people[r.id].removed);
-  if(!rows.length) return;
-  /* 当前可见的网络画布（决策页侧栏或网络页大图） */
-  let target = null;
-  nets.forEach(en => {
-    if(target) return;
-    const r = en.wrap.getBoundingClientRect();
-    if(r.width > 4 && r.bottom > 0 && r.top < innerHeight) target = en;
-  });
-  if(!target) return;                      /* 网络不可见：不标记已播，下次再试 */
-  turnFxLast = li;
-  rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
-  netWave(target, 'pm', CLR.mint, 1);
-  /* fast=替代过场：整体压进 ~1.3s 的过场窗口 */
-  const launch = fast ? 60 : 120, step = fast ? 70 : 150, lag = fast ? 520 : 950;
+  if(!P || !li) return;
+  const rows = (li.people || []).filter(r => P[r.id] && !P[r.id].removed);
+  const d = document.createElement('div');
+  d.className = 'fx-netcine';
+  d.innerHTML = '<div class="fx-netcine-cap"><span class="fx-netcine-kicker">网络推进</span>' +
+    '<span class="fx-netcine-action">' + (li.actionLabel || (a && a.label) || '') + '</span></div>' +
+    '<canvas></canvas>';
+  document.body.appendChild(d);
+  const cv = d.querySelector('canvas');
+  const ctx = cv.getContext('2d');
+  requestAnimationFrame(() => d.classList.add('on'));
+  setTimeout(() => { d.classList.remove('on'); setTimeout(() => d.remove(), 340); }, NETCINE_MS - 320);
+  const r0 = cv.getBoundingClientRect();
+  const W = r0.width, H = r0.height;
+  const bw = Math.min(W / VB.w, H / VB.h);
+  const ox = (W - VB.w * bw) / 2, oy = (H - VB.h * bw) / 2;
+  const pos = id => { const p = P[id]; return [ox + (p.x - VB.x) * bw, oy + (p.y - VB.y) * bw]; };
+  const rowCol = row => row.to > row.from ? CLR.gold
+    : row.to < row.from ? CLR.danger
+    : row.delta > 0 ? CLR.bright
+    : row.delta < 0 ? CLR.warn : CLR.teal;
+  const stCol = st => st === 4 ? CLR.green : st === 3 ? CLR.bright : st === 2 ? CLR.teal : [96, 116, 128];
+  const pulses = [], waves = [], floats = [];
+  rows.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
   rows.slice(0, 12).forEach((row, i) => {
-    const col = row.to > row.from ? CLR.gold
-              : row.to < row.from ? CLR.danger
-              : row.delta > 0 ? CLR.bright
-              : row.delta < 0 ? CLR.warn : CLR.teal;
-    const delay = launch + i * step;
+    const delay = 160 + i * 80;
+    setTimeout(() => { if(d.parentNode) pulses.push({ b:row.id, t:0, col:rowCol(row), power:Math.min(1.6, .6 + Math.abs(row.delta) / 8) }); }, delay);
     setTimeout(() => {
-      if(state.ended || !state.people[row.id]) return;
-      netPulse(target, 'pm', row.id, col, Math.min(1.6, .6 + Math.abs(row.delta) / 8), fast ? .024 : 0);
-    }, delay);
-    setTimeout(() => {
-      if(state.ended || !state.people[row.id] || state.people[row.id].removed) return;
-      target.floats.push({ id:row.id, txt:(row.delta > 0 ? '+' : '') + row.delta, color:col, t:0 });
-    }, delay + lag);
+      if(!d.parentNode) return;
+      const s2 = pos(row.id);
+      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
+      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.85, col:rowCol(row) });
+    }, delay + 620);
   });
+  setTimeout(() => { if(d.parentNode && P.pm){ const s2 = pos('pm'); waves.push({ x:s2[0], y:s2[1], r:6, alpha:.9, col:CLR.mint }); } }, 70);
+  const seed = id => { let h = 0; for(let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997; return h / 997 * 6.28; };
+  let last = 0;
+  (function frame(now){
+    if(!d.parentNode) return;
+    const dt = Math.min(.05, last ? (now - last) / 1000 : .016); last = now;
+    const t = now / 1000;
+    const fw = cv.getBoundingClientRect().width, fh = cv.getBoundingClientRect().height;
+    if(cv.width !== Math.round(fw * DPR)){ cv.width = Math.round(fw * DPR); cv.height = Math.round(fh * DPR); }
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.clearRect(0, 0, fw, fh);
+    /* 边 */
+    const seen = {};
+    ctx.lineWidth = 1;
+    Object.keys(P).forEach(id => {
+      const p = P[id]; if(!p || p.removed || typeof p.x !== 'number') return;
+      (p.ties || []).forEach(tid => {
+        if(id >= tid || !P[tid]) return;
+        const k = id + '|' + tid; if(seen[k]) return; seen[k] = 1;
+        const A = pos(id), B = pos(tid);
+        ctx.strokeStyle = rgba(CLR.teal, .16);
+        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+      });
+    });
+    /* 脉冲：弧线 + 拖尾 */
+    for(let i = pulses.length - 1; i >= 0; i--){
+      const pu = pulses[i];
+      const pb = P[pu.b];
+      if(!pb){ pulses.splice(i, 1); continue; }
+      pu.t += dt / .55;
+      if(pu.t >= 1){
+        pulses.splice(i, 1);
+        const s2 = pos(pu.b);
+        waves.push({ x:s2[0], y:s2[1], r:5, alpha:.6, col:pu.col });
+        continue;
+      }
+      const A = pos('pm'), B = pos(pu.b);
+      const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
+      const dx = B[0] - A[0], dy = B[1] - A[1];
+      const len = Math.max(1, Math.hypot(dx, dy));
+      const nx = mx - dy / len * len * .18, ny = my + dx / len * len * .18;
+      const tt = easeOut(pu.t);
+      ctx.globalCompositeOperation = 'lighter';
+      for(let k = 3; k >= 0; k--){
+        const tk = Math.max(0, tt - k * .05);
+        const xk = (1-tk)*(1-tk)*A[0] + 2*(1-tk)*tk*nx + tk*tk*B[0];
+        const yk = (1-tk)*(1-tk)*A[1] + 2*(1-tk)*tk*ny + tk*tk*B[1];
+        const rr = (4.5 - k) * pu.power;
+        const g = ctx.createRadialGradient(xk, yk, 0, xk, yk, rr * 2.4);
+        g.addColorStop(0, rgba(pu.col, .55 - k * .11));
+        g.addColorStop(1, rgba(pu.col, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(xk, yk, rr * 2.4, 0, TAU); ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    /* 冲击波 */
+    for(let i = waves.length - 1; i >= 0; i--){
+      const wv = waves[i];
+      wv.r += 70 * dt; wv.alpha -= 1.2 * dt;
+      if(wv.alpha <= .02){ waves.splice(i, 1); continue; }
+      ctx.strokeStyle = rgba(wv.col, wv.alpha);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = rgba(wv.col, wv.alpha * .4);
+      ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r * .72, 0, TAU); ctx.stroke();
+    }
+    /* 节点 */
+    Object.keys(P).forEach(id => {
+      const p = P[id]; if(!p || p.removed || typeof p.x !== 'number') return;
+      const s2 = pos(id);
+      const c = id === 'pm' ? CLR.mint : stCol(p.status);
+      const breath = .5 + .5 * Math.sin(t * 1.6 + seed(id));
+      ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(s2[0], s2[1], 0, s2[0], s2[1], 22);
+      g.addColorStop(0, rgba(c, .22 + .1 * breath)); g.addColorStop(1, rgba(c, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(s2[0], s2[1], 22, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+      const R = id === 'pm' ? 13 : 10;
+      ctx.fillStyle = 'rgba(8,20,28,.94)';
+      ctx.beginPath(); ctx.arc(s2[0], s2[1], R, 0, TAU); ctx.fill();
+      ctx.strokeStyle = rgba(c, .92); ctx.lineWidth = id === 'pm' ? 2.2 : 1.6;
+      ctx.beginPath(); ctx.arc(s2[0], s2[1], R, 0, TAU); ctx.stroke();
+      ctx.fillStyle = 'rgba(214,232,224,.88)';
+      ctx.font = '10.5px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+      ctx.fillText(p.name, s2[0], s2[1] + R + 4);
+    });
+    /* 浮字 */
+    for(let i = floats.length - 1; i >= 0; i--){
+      const f = floats[i];
+      f.t += dt;
+      const life = 1.5;
+      if(f.t > life){ floats.splice(i, 1); continue; }
+      const a = f.t < .12 ? f.t / .12 : 1 - (f.t - .12) / (life - .12);
+      const fy = f.y - 16 - f.t * 30;
+      ctx.font = '700 15px sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.shadowColor = rgba(f.col, .85 * a); ctx.shadowBlur = 9;
+      ctx.fillStyle = 'rgba(4,12,18,' + (.9 * a).toFixed(2) + ')';
+      ctx.fillText(f.txt, f.x, fy);
+      ctx.fillStyle = rgba(f.col, a);
+      ctx.fillText(f.txt, f.x, fy);
+      ctx.shadowBlur = 0;
+    }
+    requestAnimationFrame(frame);
+  })(performance.now());
 }
-/* 用网络推进动画替换全屏过场：保持原有节奏锁（结算弹窗出现时机不变），
-   不再创建 #cine overlay，改为能量从「你」流向本回合被触及的每一个人。 */
-function setupCinematicReplace(){
+/* 用网络推进过场替换全屏过场：不再创建 #cine overlay。
+   节奏：把 _cineStart 写到未来（NETCINE_MS - CINE_MS），revealAfter 的等待就被拉长到
+   整场播完（~2.7s），结算弹窗/祝贺动画随后照常。 */
+function setupNetCinematic(){
   if(typeof playActionCinematic !== 'function' || playActionCinematic.__fxNetCine) return;
   const _pac = playActionCinematic;
   playActionCinematic = function(a, targetIds){
     if(typeof cineDisabled === 'function' && cineDisabled()){ _pac(a, targetIds); return; }
-    try{ _cineStart = Date.now(); _cineBusy = true; }catch(_){ }
-    if(!REDUCE) setTimeout(() => { try{ fxPlayTurnImpact(true); }catch(_){ } }, 80);
+    try{
+      _cineStart = Date.now() + (REDUCE ? 0 : (NETCINE_MS - CINE_MS));
+      _cineBusy = true;
+    }catch(_){ }
+    if(!REDUCE) setTimeout(() => { try{ playNetCinematic(a); }catch(_){ } }, 60);
   };
   playActionCinematic.__fxNetCine = true;
 }
@@ -1495,7 +1621,7 @@ function boot(){
   try{ setupTilt(); }catch(_){ }
   try{ setupGlass(); }catch(_){ }
   try{ setupEndingFx(); }catch(_){ }
-  try{ setupCinematicReplace(); }catch(_){ }
+  try{ setupNetCinematic(); }catch(_){ }
   try{ setupAtmosphere(); }catch(_){ }
   try{ setupStarfield(); }catch(_){ }
   try{ setupCursorGlow(); }catch(_){ }
