@@ -6167,15 +6167,17 @@ function cheatToast(msg){
 /* 等过场放完再揭结果：新转化的人先单独谢幕，然后才是复盘弹窗 */
 function revealAfter(fn, newlyConverted){
   if(cineDisabled()){ fn(); return; }
-  const wait = Math.max(0, CINE_MS + 80 - (Date.now() - _cineStart));
-  setTimeout(()=>{
+  /* v124：轮询而不是一次定死——快进按钮会把 _cineStart 拨早，揭结果的时机要跟着提前 */
+  (function tick(){
+    const remain = CINE_MS + 80 - (Date.now() - _cineStart);
+    if(remain > 0){ setTimeout(tick, Math.min(remain, 50)); return; }
     hideCinematic();
     const names = (newlyConverted||[]).map(id=>state.people[id]?state.people[id].name:null).filter(Boolean);
     // _cineBusy 一直锁到结果真正落地，避免动画期间再触发一次执行
     const land = ()=>{ _cineBusy = false; fn(); };
-    if(names.length) setTimeout(()=>playCelebration(names, land), 150);
-    else setTimeout(land, 150);
-  }, wait);
+    if(names.length) setTimeout(()=>playCelebration(names, land), 60);
+    else setTimeout(land, 60);
+  })();
 }
 
 /* =========================================================

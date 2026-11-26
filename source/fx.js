@@ -140,14 +140,24 @@ css.textContent = [
   '.fx-netcine-cap{display:flex;align-items:baseline;gap:12px}',
   '.fx-netcine-kicker{font-size:12px;letter-spacing:4px;color:#6fd8a0;font-weight:700}',
   '.fx-netcine-action{font-size:20px;font-weight:800;color:#eaf6ef}',
-  '.fx-netcine-notes{display:flex;gap:18px;min-height:18px;align-items:center}',
-  '.fx-netcine-notes span{font-size:12.5px;font-weight:700;letter-spacing:2px;opacity:0;animation:fxNoteIn .45s forwards}',
+  /* v128：相位提示改到屏幕中央大字弹出——遮住图是有意的：这一刻要的是强调 */
+  '.fx-netcine-notes{position:absolute;top:calc(50% - 96px);left:0;right:0;display:flex;gap:14px;justify-content:center;align-items:center;pointer-events:none}',
+  '.fx-netcine-notes span{font-size:14px;font-weight:800;letter-spacing:4px;opacity:0;animation:fxNoteIn .45s forwards}',
   '.fx-n-direct{color:#8ef0a8}',
   '.fx-n-spread{color:#a6f4ff}',
   '.fx-n-decay{color:#9ab4c2}',
-  '.fx-netcine-line{min-height:30px;font-size:21px;font-weight:800;letter-spacing:4px;color:#ffffff;'+'text-shadow:0 0 20px rgba(120,235,175,.75),0 0 42px rgba(120,235,175,.35),0 2px 3px rgba(0,0,0,.8);opacity:0}',
-  '.fx-netcine-line.on{animation:fxNoteIn .45s forwards}',
+  '.fx-netcine-line{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:max-content;max-width:92vw;text-align:center;'+'font-size:clamp(26px,4.6vw,44px);font-weight:900;letter-spacing:5px;line-height:1.3;color:#ffffff;white-space:normal;pointer-events:none;'+'text-shadow:0 0 24px rgba(120,235,175,.8),0 0 52px rgba(120,235,175,.4),0 3px 4px rgba(0,0,0,.85);opacity:0}',
+  '.fx-netcine-line.on{animation:fxBigIn .5s cubic-bezier(.2,1.4,.4,1) forwards}',
+  '.fx-netcine-line.fx-n-direct{color:#ffe9a8;text-shadow:0 0 26px rgba(255,217,102,.85),0 0 56px rgba(255,217,102,.45),0 3px 4px rgba(0,0,0,.85)}',
+  '.fx-netcine-line.fx-n-spread{color:#a9f2cf;text-shadow:0 0 24px rgba(111,216,160,.8),0 0 52px rgba(111,216,160,.4),0 3px 4px rgba(0,0,0,.85)}',
+  '.fx-netcine-line.fx-n-decay{color:#b9cdd8;text-shadow:0 0 20px rgba(143,178,194,.65),0 3px 4px rgba(0,0,0,.85)}',
+  '.fx-n-direct{color:#ffd966;font-weight:800}',
+  '.fx-n-spread{color:#6fd8a0}',
+  '.fx-n-decay{color:#8fb2c2}',
+  '.fx-netcine-skip{position:absolute;top:14px;right:14px;z-index:2600;padding:6px 13px;border-radius:999px;pointer-events:auto;'+'border:1px solid rgba(143,178,194,.35);background:rgba(10,24,33,.55);color:#cfe3ec;font:600 12px inherit;'+'cursor:pointer;letter-spacing:1px;opacity:.55;transition:all .2s ease}',
+  '.fx-netcine-skip:hover,.fx-netcine-skip:focus-visible{border-color:rgba(166,244,255,.8);color:#fff;background:rgba(13,139,150,.45);opacity:1}',
   '@keyframes fxNoteIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
+  '@keyframes fxBigIn{0%{opacity:0;transform:translate(-50%,-50%) scale(1.35)}60%{opacity:1}100%{opacity:1;transform:translate(-50%,-50%) scale(1)}}',
   /* 减少动态：全停 */
   '@media (prefers-reduced-motion: reduce){.screen.active,.kpi .num.fx-pop,.fx-glass,.fx-holo,.svg-wrapper .node,.fx-ms,.fx-wipe i{animation:none!important}}'
 ].join('\n');
@@ -428,7 +438,7 @@ function netWave(entry, id, color, power){
 /* 网络推进过场：全屏播放本回合动作如何沿网络扩散（替代原全屏过场）。
    点击「执行决策」后铺满屏幕的大网络图上：能量从「你」错峰流向每个被触及的人，
    到达时冲击波 + 头顶浮出 ±N，升档金环/降档红环。 */
-const NETCINE_MS = 4600;
+const NETCINE_MS = 6400;
 function playNetCinematic(a){
   if(REDUCE || typeof state === 'undefined' || !state) return;
   const P = state.people;
@@ -443,10 +453,21 @@ function playNetCinematic(a){
     '<div class="fx-netcine-notes"></div>' +
     '<div class="fx-netcine-line"></div>';
   document.body.appendChild(d);
+  /* v124：快进按钮——课堂节奏自主掌握；点了就立刻收尾并放结果进来 */
+  const skip = document.createElement('button');
+  skip.type = 'button';
+  skip.className = 'fx-netcine-skip';
+  skip.textContent = '跳过动画 ≫';
+  skip.addEventListener('click', ev => {
+    ev.stopPropagation();
+    try{ if(typeof _cineStart !== 'undefined') _cineStart = Date.now() - (typeof CINE_MS !== 'undefined' ? CINE_MS : 1250); }catch(_){ }
+    d.style.opacity = '0';
+    setTimeout(() => { if(d.parentNode) d.remove(); }, 160);
+  });
+  d.appendChild(skip);
   const cv = d.querySelector('canvas');
   const ctx = cv.getContext('2d');
   requestAnimationFrame(() => d.classList.add('on'));
-  setTimeout(() => { d.classList.remove('on'); setTimeout(() => d.remove(), 340); }, NETCINE_MS - 320);
   const r0 = cv.getBoundingClientRect();
   const W = r0.width, H = r0.height;
   const bw = Math.min(W / VB.w, H / VB.h);
@@ -463,6 +484,8 @@ function playNetCinematic(a){
   const LINES = { direct:'你亲自出马，正面推动', spread:'网络替你发力，层层带动', decay:'无人推动，自然回落' };
   const note = kind => {
     if(notes){
+      /* v128：中央舞台只留当前相位，旧标签清掉 */
+      notes.innerHTML = '';
       const el = document.createElement('span');
       el.className = 'fx-n-' + kind;
       el.textContent = { direct:'直接推动', spread:'间接推动', decay:'自然冷却' }[kind];
@@ -470,7 +493,7 @@ function playNetCinematic(a){
     }
     if(line){
       line.textContent = LINES[kind] || '';
-      line.classList.remove('on');
+      line.className = 'fx-netcine-line fx-n-' + kind;
       line.style.animation = 'none';
       void line.offsetWidth;
       line.style.animation = '';
@@ -481,9 +504,9 @@ function playNetCinematic(a){
   const isDirect = row => (row.reasons || []).some(t => t === '直接推动' || t === '动作直接作用' || t === '广覆盖');
   const isDecay = row => !isDirect(row) && (row.reasons || []).indexOf('自然衰减') >= 0 && (row.reasons || []).indexOf('网络扩散') < 0;
   rows.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
-  const direct = rows.filter(isDirect).slice(0, 12);
-  const decay = rows.filter(isDecay).slice(0, 12);
-  const spread = rows.filter(r => !isDirect(r) && !isDecay(r)).slice(0, 12);
+  const direct = rows.filter(isDirect).slice(0, 8);
+  const decay = rows.filter(isDecay).slice(0, 5);
+  const spread = rows.filter(r => !isDirect(r) && !isDecay(r)).slice(0, 8);
   /* 间接推动的源头：从受影响最深、与其有关系的直接推动节点沿网络流过去 */
   const srcOf = row => {
     let best = null, bestScore = -1;
@@ -497,41 +520,50 @@ function playNetCinematic(a){
     return best || 'pm';
   };
   const STEEL = [130, 160, 175];
-  /* 三个明确错开的相位：直接 → 间接 → 冷却，各配旁白 */
-  const D0 = 400, D_STEP = 120;
-  const iBase = D0 + direct.length * D_STEP + 850;
-  const dBase = iBase + spread.length * 140 + 700;
+  /* 三个明确错开的相位：直接 → 间接 → 冷却，各配旁白（v124：相位间隙拉长，节奏更从容） */
+  const D0 = 550, D_STEP = 175;
+  const iBase = D0 + direct.length * D_STEP + 1350;
+  const dBase = iBase + spread.length * 200 + 1250;
+  /* v127：片长按「最后一个视觉元素自然消散」来定——直接/间接的浮字有 1.5s 生命周期，
+     冷却环约 1s。短回合不必等满 NETCINE_MS，长回合自动延长，把 _cineStart 同步拨准，
+     揭结果永远跟在动画真正结束之后 ~330ms（淡出 320ms + 80ms 节拍）。 */
+  const directLast = direct.length ? D0 + (direct.length - 1) * D_STEP + 1050 + 1500 : 0;
+  const spreadLast = spread.length ? iBase + (spread.length - 1) * 200 + 1000 + 1500 : 0;
+  const decayLast  = decay.length  ? dBase + (decay.length - 1) * 170 + 200 + 950 : 0;
+  const life = Math.max(directLast, spreadLast, decayLast, 2200) + 250;
+  try{ _cineStart += (life - NETCINE_MS); }catch(_){ }
+  setTimeout(() => { d.classList.remove('on'); setTimeout(() => d.remove(), 240); }, life - 320);
   /* 第一波：直接推动——从「你」直线出击 */
   setTimeout(() => { if(d.parentNode) note('direct'); }, D0);
   direct.forEach((row, i) => {
     const delay = D0 + i * D_STEP;
-    setTimeout(() => { if(d.parentNode) pulses.push({ a:'pm', b:row.id, t:0, col:rowCol(row), power:Math.min(1.7, .7 + Math.abs(row.delta) / 8) }); }, delay);
+    setTimeout(() => { if(d.parentNode) pulses.push({ a:'pm', b:row.id, t:0, col:rowCol(row), power:Math.min(1.9, .95 + Math.abs(row.delta) / 7), kind:'direct' }); }, delay);
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
-      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
-      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.85, col:rowCol(row) });
-    }, delay + 760);
+      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row), kind:'direct' });
+      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.9, col:rowCol(row), kind:'direct' });
+    }, delay + 1050);
   });
   /* 第二波：间接推动——沿网络边从邻居流过来 */
   if(spread.length) setTimeout(() => { if(d.parentNode) note('spread'); }, iBase);
   spread.forEach((row, i) => {
-    const delay = iBase + i * 140;
+    const delay = iBase + i * 200;
     const src = srcOf(row);
     const col = row.to > row.from ? CLR.gold : row.to < row.from ? CLR.danger
       : row.delta > 0 ? CLR.mint : row.delta < 0 ? CLR.warn : CLR.teal;
-    setTimeout(() => { if(d.parentNode && P[src]) pulses.push({ a:src, b:row.id, t:0, col:col, power:Math.min(1.2, .45 + Math.abs(row.delta) / 10) }); }, delay);
+    setTimeout(() => { if(d.parentNode && P[src]) pulses.push({ a:src, b:row.id, t:0, col:col, power:Math.min(1.05, .4 + Math.abs(row.delta) / 12), kind:'spread' }); }, delay);
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
-      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col });
-      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.8, col:col });
-    }, delay + 740);
+      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col, kind:'spread' });
+      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.75, col:col, kind:'spread' });
+    }, delay + 1000);
   });
   /* 第三波：自然冷却——不发射脉冲、不点亮连线，只在节点上做向内收缩的降温环 */
   if(decay.length) setTimeout(() => { if(d.parentNode) note('decay'); }, dBase);
   decay.forEach((row, i) => {
-    const delay = dBase + i * 120;
+    const delay = dBase + i * 170;
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
@@ -581,14 +613,23 @@ function playNetCinematic(a){
       const len = Math.max(1, Math.hypot(dx, dy));
       const nx = mx - dy / len * len * .18, ny = my + dx / len * len * .18;
       const tt = easeOut(pu.t);
+      const dir = pu.kind === 'direct';
       ctx.globalCompositeOperation = 'lighter';
+      /* v124：直接推动带一条醒目的能量束，间接推动细小如萤——形态上拉开差距 */
+      if(dir){
+        const hx = (1-tt)*(1-tt)*A[0] + 2*(1-tt)*tt*nx + tt*tt*B[0];
+        const hy = (1-tt)*(1-tt)*A[1] + 2*(1-tt)*tt*ny + tt*tt*B[1];
+        ctx.strokeStyle = rgba(pu.col, .3);
+        ctx.lineWidth = 2.6 * pu.power;
+        ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.quadraticCurveTo(nx, ny, hx, hy); ctx.stroke();
+      }
       for(let k = 3; k >= 0; k--){
         const tk = Math.max(0, tt - k * .05);
         const xk = (1-tk)*(1-tk)*A[0] + 2*(1-tk)*tk*nx + tk*tk*B[0];
         const yk = (1-tk)*(1-tk)*A[1] + 2*(1-tk)*tk*ny + tk*tk*B[1];
-        const rr = (4.5 - k) * pu.power;
+        const rr = (4.5 - k) * pu.power * (dir ? 1.25 : .8);
         const g = ctx.createRadialGradient(xk, yk, 0, xk, yk, rr * 2.4);
-        g.addColorStop(0, rgba(pu.col, .55 - k * .11));
+        g.addColorStop(0, rgba(pu.col, (dir ? .66 : .42) - k * .11));
         g.addColorStop(1, rgba(pu.col, 0));
         ctx.fillStyle = g;
         ctx.beginPath(); ctx.arc(xk, yk, rr * 2.4, 0, TAU); ctx.fill();
@@ -598,13 +639,15 @@ function playNetCinematic(a){
     /* 冲击波 */
     for(let i = waves.length - 1; i >= 0; i--){
       const wv = waves[i];
-      wv.r += 70 * dt; wv.alpha -= 1.2 * dt;
+      wv.r += (wv.kind === 'direct' ? 84 : 70) * dt; wv.alpha -= 1.2 * dt;
       if(wv.alpha <= .02){ waves.splice(i, 1); continue; }
       ctx.strokeStyle = rgba(wv.col, wv.alpha);
-      ctx.lineWidth = 2;
+      ctx.lineWidth = wv.kind === 'direct' ? 3 : (wv.kind === 'spread' ? 1.6 : 2);
       ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r, 0, TAU); ctx.stroke();
-      ctx.strokeStyle = rgba(wv.col, wv.alpha * .4);
-      ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r * .72, 0, TAU); ctx.stroke();
+      if(wv.kind === 'direct'){
+        ctx.strokeStyle = rgba(wv.col, wv.alpha * .4);
+        ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r * .72, 0, TAU); ctx.stroke();
+      }
     }
     /* 节点 */
     Object.keys(P).forEach(id => {
@@ -649,9 +692,11 @@ function playNetCinematic(a){
       if(f.t > life){ floats.splice(i, 1); continue; }
       const a = f.t < .12 ? f.t / .12 : 1 - (f.t - .12) / (life - .12);
       const fy = f.y - 16 - f.t * 30;
-      ctx.font = '700 15px sans-serif';
+      /* v124：直接推动的浮字最大最亮，间接细小，冷却居中 */
+      ctx.font = f.kind === 'direct' ? '800 18px sans-serif'
+        : f.kind === 'spread' ? '600 13.5px sans-serif' : '700 15px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.shadowColor = rgba(f.col, .85 * a); ctx.shadowBlur = 9;
+      ctx.shadowColor = rgba(f.col, .85 * a); ctx.shadowBlur = f.kind === 'direct' ? 13 : 9;
       ctx.fillStyle = 'rgba(4,12,18,' + (.9 * a).toFixed(2) + ')';
       ctx.fillText(f.txt, f.x, fy);
       ctx.fillStyle = rgba(f.col, a);
@@ -1713,14 +1758,12 @@ function boot(){
   try{ netEntry('networkSvg'); netEntry('networkSvg2'); }catch(_){ }
   try{ setupKpi(); }catch(_){ }
   try{ setupRipple(); }catch(_){ }
-  try{ setupTilt(); }catch(_){ }
-  try{ setupGlass(); }catch(_){ }
+  /* v126：为流畅度关掉高成本低价值的花哨层——3D 卡片倾斜、全息扫描光泽、
+     全屏胶片颗粒/微尘、鼠标光晕、切屏擦除。保留：极光背景、网络光晕、KPI 脉冲、
+     按钮涟漪、开场星野、结局图表与回放、网络推进过场。 */
   try{ setupEndingFx(); }catch(_){ }
   try{ setupNetCinematic(); }catch(_){ }
-  try{ setupAtmosphere(); }catch(_){ }
   try{ setupStarfield(); }catch(_){ }
-  try{ setupCursorGlow(); }catch(_){ }
-  try{ setupWipe(); }catch(_){ }
   /* 网络页/决策页切换后 svg 可能重建，兜底巡检 */
   if(typeof showScreen === 'function'){
     const _ss = showScreen;
