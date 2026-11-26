@@ -52,6 +52,13 @@ function fitCanvas(cv){
   const w = Math.max(1, Math.round(r.width * DPR));
   const h = Math.max(1, Math.round(r.height * DPR));
   if(cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  /* 关键：位图是 CSS×DPR，但所有绘制代码都用 CSS 坐标（含 getBoundingClientRect 推导的位置）。
+     统一设 DPR 变换，保证 clearRect 覆盖整个位图——否则 DPR>1 时右/下边缘只画不清，
+     颗粒层每帧自我叠加，几分钟就糊成一条不透明白带。 */
+  try{
+    const c2 = cv.__fx2d || (cv.__fx2d = cv.getContext('2d'));
+    if(c2 && c2.setTransform) c2.setTransform(DPR, 0, 0, DPR, 0, 0);
+  }catch(_){ }
   return { w:r.width, h:r.height };
 }
 /* easeOutCubic / spring-ish */
@@ -487,7 +494,7 @@ function netFrame(now){
         if(seen[k2]) return; seen[k2] = 1;
         const A = netMap(entry, a.x, a.y), B = netMap(entry, b.x, b.y);
         ctx.strokeStyle = rgba(col, al);
-        ctx.lineWidth = 1.1 * DPR;
+        ctx.lineWidth = 1.1;
         ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
       };
       Object.keys(P).forEach(id => {
@@ -896,9 +903,10 @@ function setupAtmosphere(){
   const ctx = cv.getContext('2d');
   /* 预渲染颗粒瓦片 */
   const tile = document.createElement('canvas');
-  tile.width = tile.height = 144;
+  const TS = Math.max(36, Math.round(144 / DPR));   /* 瓦片保持 144 设备像素的粒度 */
+  tile.width = tile.height = TS;
   const tctx = tile.getContext('2d');
-  const img = tctx.createImageData(144, 144);
+  const img = tctx.createImageData(TS, TS);
   for(let i = 0; i < img.data.length; i += 4){
     const v = 120 + Math.random() * 135 | 0;
     img.data[i] = img.data[i+1] = img.data[i+2] = v;
@@ -928,12 +936,12 @@ function setupAtmosphere(){
       if(!pattern) pattern = ctx.createPattern(tile, 'repeat');
       const t = (now - t0) / 1000;
       ctx.globalAlpha = .55;
-      ctx.save(); ctx.translate(-((t * 7) % 144), -((t * 4.3) % 144));
-      ctx.fillStyle = pattern; ctx.fillRect(0, 0, w + 144, h + 144);
+      ctx.save(); ctx.translate(-((t * 7) % TS), -((t * 4.3) % TS));
+      ctx.fillStyle = pattern; ctx.fillRect(0, 0, w + TS, h + TS);
       ctx.restore();
       ctx.globalAlpha = .35;
-      ctx.save(); ctx.translate(-((t * 11 + 60) % 144), -((t * 6.1 + 40) % 144));
-      ctx.fillStyle = pattern; ctx.fillRect(0, 0, w + 144, h + 144);
+      ctx.save(); ctx.translate(-((t * 11 + 60) % TS), -((t * 6.1 + 40) % TS));
+      ctx.fillStyle = pattern; ctx.fillRect(0, 0, w + TS, h + TS);
       ctx.restore();
       ctx.globalAlpha = 1;
     }
@@ -947,7 +955,7 @@ function setupAtmosphere(){
         const x = (d.x + Math.sin(t * .35 + d.ph) * .012) * w;
         const y = d.y * h;
         const tw = .5 + .5 * Math.sin(t * 1.1 + d.ph * 3);
-        const r = (0.8 + d.z * 1.7) * DPR;
+        const r = 0.8 + d.z * 1.7;
         const g = ctx.createRadialGradient(x, y, 0, x, y, r * 3.4);
         g.addColorStop(0, rgba(CLR.mint, .10 * tw * d.z));
         g.addColorStop(1, rgba(CLR.mint, 0));
@@ -1003,10 +1011,10 @@ function setupStarfield(){
       const tw = .35 + .65 * Math.abs(Math.sin(t * (.6 + s.z) + s.ph));
       const col = s.z > .75 ? CLR.mint : CLR.teal;
       ctx.fillStyle = rgba(col, .5 * tw * s.z);
-      ctx.beginPath(); ctx.arc(px, py, s.r * DPR * s.z, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(px, py, s.r * s.z, 0, TAU); ctx.fill();
       if(s.z > .8 && tw > .8){
         ctx.fillStyle = rgba(col, .12 * tw);
-        ctx.beginPath(); ctx.arc(px, py, s.r * DPR * s.z * 3, 0, TAU); ctx.fill();
+        ctx.beginPath(); ctx.arc(px, py, s.r * s.z * 3, 0, TAU); ctx.fill();
       }
     });
     ctx.globalCompositeOperation = 'source-over';
@@ -1091,7 +1099,7 @@ function spawnConfetti(){
       ctx.save();
       ctx.translate(px, py); ctx.rotate(p.rot);
       ctx.fillStyle = rgba(p.col, .75 * fade);
-      ctx.fillRect(-p.w * DPR/2, -p.h * DPR/2, p.w * DPR, p.h * DPR);
+      ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h);
       ctx.restore();
     });
     ctx.globalCompositeOperation = 'source-over';
@@ -1272,7 +1280,7 @@ function replayFrame(now){
 
   /* 边 */
   const seen = {};
-  ctx.lineWidth = 1 * DPR;
+  ctx.lineWidth = 1;
   Object.keys(P).forEach(id => {
     const p = P[id]; if(!p || typeof p.x !== 'number') return;
     (p.ties || []).forEach(tid => {
@@ -1332,7 +1340,7 @@ function replayFrame(now){
     wv.r += 46 * dt; wv.alpha *= Math.pow(.02, dt);
     if(wv.alpha < .02){ RP.waves.splice(i, 1); continue; }
     ctx.strokeStyle = rgba(wv.col, wv.alpha);
-    ctx.lineWidth = 2 * DPR;
+    ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r, 0, TAU); ctx.stroke();
   }
 
@@ -1359,7 +1367,7 @@ function replayFrame(now){
     ctx.arc(pos[0], pos[1], isPm ? rad * 1.25 : rad, 0, TAU);
     ctx.fillStyle = p.removed ? 'rgba(20,28,34,.9)' : rgba(col, st >= 2 ? .28 : .16);
     ctx.fill();
-    ctx.lineWidth = (isPm ? 2.2 : 1.6) * DPR;
+    ctx.lineWidth = isPm ? 2.2 : 1.6;
     ctx.strokeStyle = rgba(isPm ? CLR.gold : col, p.removed ? .4 : .95);
     if(p.removed) ctx.setLineDash([3, 3]);
     ctx.stroke();
@@ -1370,13 +1378,13 @@ function replayFrame(now){
       const age = (now - fl.t0) / 1000;
       if(age < 1.2){
         ctx.strokeStyle = rgba(fl.col, .8 * (1 - age / 1.2));
-        ctx.lineWidth = 2.5 * DPR;
+        ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.arc(pos[0], pos[1], rad + 4 + age * 16, 0, TAU); ctx.stroke();
       } else delete RP.flash[id];
     }
     /* 名字 */
     ctx.fillStyle = 'rgba(214,232,224,.6)';
-    ctx.font = (9.5 * DPR) + 'px sans-serif';
+    ctx.font = '9.5px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     ctx.fillText(p.name || id, pos[0], pos[1] + rad + 3);
   });
@@ -1387,7 +1395,7 @@ function replayFrame(now){
     const age = (now - f.t0) / 1000;
     if(age > 1.3){ RP.floats.splice(i, 1); continue; }
     ctx.fillStyle = rgba(f.col, 1 - age / 1.3);
-    ctx.font = '700 ' + (12 * DPR) + 'px sans-serif';
+    ctx.font = '700 12px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(f.txt, f.x, f.y - age * 30);
   }
@@ -1395,9 +1403,9 @@ function replayFrame(now){
   /* 回合标注 */
   const hh = RP.hist[rr];
   ctx.fillStyle = 'rgba(214,232,224,.85)';
-  ctx.font = '600 ' + (12.5 * DPR) + 'px sans-serif';
+  ctx.font = '600 12.5px sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText((rr + 1) + '/' + RP.R + ' · ' + (hh.actionLabel || ''), 12 * DPR, 10 * DPR);
+  ctx.fillText((rr + 1) + '/' + RP.R + ' · ' + (hh.actionLabel || ''), 12, 10);
 
   if(RP.barFill) RP.barFill.style.width = (RP.t / (RP.R * RP.dur) * 100).toFixed(1) + '%';
 }
