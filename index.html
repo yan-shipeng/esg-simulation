@@ -8684,7 +8684,7 @@ function netEntry(svgId){
     panning:false, moved:0, px:0, py:0,
     ptr:{x:-999, y:-999, inside:false},
     offsets:{},                        /* 斥力视觉偏移 */
-    pulses:[], waves:[], seeds:{},
+    pulses:[], waves:[], seeds:{}, floats:[],
     hover:null, lastStatus:{}, lastHist:0, lastSoft:{},
     hasPulse:false, hasWave:false
   };
@@ -8806,6 +8806,53 @@ function netWave(entry, id, color, power){
   if(REDUCE || !entry) return;
   entry.waves.push({ id, r:8, alpha:.8 * (power||1), color:color||CLR.bright });
   entry.hasWave = true;
+}
+
+/* ═══ 回合触发动画：结算弹窗关闭后，立刻从网络角度回放这一回合 ═══
+   能量从「你」错峰流向每个被触及的人，到达时冲击波 + 节点头顶浮出 ±N；
+   升档金环 / 降档红环。每个 lastImpact 只播一次；结局页有完整战局回放，不重复播。 */
+let turnFxLast = null;
+function fxPlayTurnImpact(){
+  if(REDUCE || typeof state === 'undefined' || !state || state.ended) return;
+  const li = state.lastImpact;
+  if(!li || turnFxLast === li) return;
+  const rows = (li.people || []).filter(r => state.people[r.id] && !state.people[r.id].removed);
+  if(!rows.length) return;
+  /* 当前可见的网络画布（决策页侧栏或网络页大图） */
+  let target = null;
+  nets.forEach(en => {
+    if(target) return;
+    const r = en.wrap.getBoundingClientRect();
+    if(r.width > 4 && r.bottom > 0 && r.top < innerHeight) target = en;
+  });
+  if(!target) return;                      /* 网络不可见：不标记已播，下次关闭弹窗再试 */
+  turnFxLast = li;
+  rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+  netWave(target, 'pm', CLR.mint, 1);
+  rows.slice(0, 12).forEach((row, i) => {
+    const col = row.to > row.from ? CLR.gold
+              : row.to < row.from ? CLR.danger
+              : row.delta > 0 ? CLR.bright
+              : row.delta < 0 ? CLR.warn : CLR.teal;
+    const delay = 120 + i * 150;
+    setTimeout(() => {
+      if(state.ended || !state.people[row.id]) return;
+      netPulse(target, 'pm', row.id, col, Math.min(1.6, .6 + Math.abs(row.delta) / 8));
+    }, delay);
+    setTimeout(() => {
+      if(state.ended || !state.people[row.id] || state.people[row.id].removed) return;
+      target.floats.push({ id:row.id, txt:(row.delta > 0 ? '+' : '') + row.delta, color:col, t:0 });
+    }, delay + 950);
+  });
+}
+function setupTurnFx(){
+  if(typeof closeModal !== 'function' || closeModal.__fxTurnWrapped) return;
+  const _cm = closeModal;
+  closeModal = function(){
+    _cm.apply(this, arguments);
+    try{ setTimeout(fxPlayTurnImpact, 60); }catch(_){ }
+  };
+  closeModal.__fxTurnWrapped = true;
 }
 
 /* 每帧渲染 */
@@ -9010,6 +9057,30 @@ function netFrame(now){
         ctx.beginPath(); ctx.arc(xk, yk, rr * 2.2, 0, TAU); ctx.fill();
       }
       ctx.globalCompositeOperation = 'source-over';
+    }
+    /* 4) 回合分数浮字（升/降，向上飘后淡出） */
+    if(entry.floats.length){
+      const fdt = Math.min(.05, (now - (entry._fNow || now)) / 1000);
+      entry._fNow = now;
+      for(let i = entry.floats.length - 1; i >= 0; i--){
+        const f = entry.floats[i];
+        const fp = P[f.id];
+        if(!fp){ entry.floats.splice(i,1); continue; }
+        f.t += fdt;
+        const life = 1.6;
+        if(f.t > life){ entry.floats.splice(i,1); continue; }
+        const fs = netMap(entry, fp.x, fp.y);
+        const a = f.t < .15 ? f.t / .15 : 1 - (f.t - .15) / (life - .15);
+        const fy = fs[1] - 14 - f.t * 26;
+        ctx.font = '700 12px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.shadowColor = rgba(f.color, .85 * a); ctx.shadowBlur = 7;
+        ctx.fillStyle = 'rgba(4,12,18,' + (.9 * a).toFixed(2) + ')';
+        ctx.fillText(f.txt, fs[0], fy);
+        ctx.fillStyle = rgba(f.color, a);
+        ctx.fillText(f.txt, fs[0], fy);
+        ctx.shadowBlur = 0;
+      }
     }
     if(!entry.waves.length) entry.hasWave = false;
     if(!entry.pulses.length) entry.hasPulse = false;
@@ -9822,6 +9893,7 @@ function boot(){
   try{ setupTilt(); }catch(_){ }
   try{ setupGlass(); }catch(_){ }
   try{ setupEndingFx(); }catch(_){ }
+  try{ setupTurnFx(); }catch(_){ }
   try{ setupAtmosphere(); }catch(_){ }
   try{ setupStarfield(); }catch(_){ }
   try{ setupCursorGlow(); }catch(_){ }
