@@ -6812,28 +6812,48 @@ function buildTrendCard(title, series, color, ymin, ymax){
   const n = series.length;
   const xStep = n>1 ? innerW/(n-1) : innerW;
   const yScale = (v)=> pad.t + innerH - (innerH * (v - ymin) / Math.max(1, (ymax - ymin)));
+  /* FX：渐变填充需要真实颜色值（SVG 属性不支持 var()）——从 CSS 变量解析 */
+  let col = color;
+  try{
+    const probe = document.createElement('span');
+    probe.style.color = color;
+    document.body.appendChild(probe);
+    col = getComputedStyle(probe).color || color;
+    probe.remove();
+  }catch(_){ }
 
   const pts = series.map((v,i)=>`${pad.l + i*xStep},${yScale(v)}`).join(' ');
+  /* FX：渐变填充区 + 发光底线 */
+  const uid = 'fxg' + Math.random().toString(36).slice(2,8);
+  const baseLine = `${pad.l},${h-pad.b} ` + pts + ` ${pad.l+(n-1)*xStep},${h-pad.b}`;
   const ticks=[ymin, Math.round((ymin+ymax)/2), ymax];
   const grid = ticks.map(t=>`
     <line x1="${pad.l}" y1="${yScale(t)}" x2="${w-pad.r}" y2="${yScale(t)}" stroke="#eee" stroke-width="1"/>
     <text x="${pad.l-6}" y="${yScale(t)+4}" font-size="10" fill="#999" text-anchor="end">${t}</text>
   `).join('');
-  const dots = series.map((v,i)=>`<circle cx="${pad.l+i*xStep}" cy="${yScale(v)}" r="3" fill="${color}"/>`).join('');
+  const dots = series.map((v,i)=>`<circle cx="${pad.l+i*xStep}" cy="${yScale(v)}" r="3" fill="${col}"/><circle cx="${pad.l+i*xStep}" cy="${yScale(v)}" r="11" fill="transparent" pointer-events="all"><title>回合 ${i} · ${v}</title></circle>`).join('');
   // 里程碑竖线（用日志里的 milestones 字段）
   const milestoneLines = state.history.map((h,idx)=>{
     if(!(h.milestones||[]).length) return '';
     const x = pad.l + (idx+1)*xStep;
-    return `<line x1="${x}" y1="${pad.t}" x2="${x}" y2="${h-pad.b}" stroke="#ffd966" stroke-width="1.5" stroke-dasharray="3 3"/>`;
+    return `<line class="fx-ms" x1="${x}" y1="${pad.t}" x2="${x}" y2="${h-pad.b}" stroke="#ffd966" stroke-width="1.5" stroke-dasharray="3 3"/>`;
   }).join('');
   const xLabels = series.map((v,i)=>`<text x="${pad.l+i*xStep}" y="${h-6}" font-size="10" fill="#999" text-anchor="middle">${i}</text>`).join('');
 
   card.innerHTML = `
     <h4>${title}（每个点对应一个回合，0 为起始；黄色虚线表示里程碑）</h4>
     <svg class="trend-svg" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid meet" aria-label="${title} 趋势">
+      <defs>
+        <linearGradient id="${uid}" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="${col}" stop-opacity=".28"/>
+          <stop offset="1" stop-color="${col}" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
       ${grid}
       ${milestoneLines}
-      <polyline points="${pts}" fill="none" stroke="${color}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <polygon points="${baseLine}" fill="url(#${uid})" stroke="none"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round" opacity=".16"/>
+      <polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
       ${dots}
       ${xLabels}
     </svg>

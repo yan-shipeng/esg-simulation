@@ -78,6 +78,7 @@ with open('missing.txt', 'w', encoding='utf-8') as f:
 src = open('game.html', encoding='utf-8').read()
 engine = open('i18n-engine.js', encoding='utf-8').read()
 leaderboard = open('leaderboard.js', encoding='utf-8').read()
+fx = open('fx.js', encoding='utf-8').read()
 
 # leaderboard backend config:
 #   backend_url.txt  = stable published URL (no token) — preferred once published
@@ -195,6 +196,7 @@ inject += 'window.__LEADERBOARD_API_QS__ = ' + json.dumps(lb_qs) + ';\n'
 inject += 'window.__LEADERBOARD_COURSE_ID__ = "esg";\n'
 inject += '</script>\n'
 inject += '<script>\n' + leaderboard + '\n</script>\n'
+inject += '<script>\n/* FX · Living Network visual system */\n' + fx + '\n</script>\n'
 
 font_link = ''
 out = src.replace('</head>', font_link + '\n</head>')
