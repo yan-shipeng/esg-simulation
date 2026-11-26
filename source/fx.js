@@ -1162,8 +1162,13 @@ function drawGauge(cv, total, grade){
 function drawRadar(cv, dims){
   const ctx = cv.getContext('2d');
   const w = cv.width, h = cv.height;
-  const cx = w/2, cy = h/2 + 4*DPR, R = Math.min(w,h)/2 - 22*DPR;
+  const cx = w/2, cy = h/2 + 10*DPR, R = Math.min(w,h)/2 - 26*DPR;
   const n = dims.length;
+  /* v130：维度名直接标在对应顶点外沿（canvas 不走 DOM 翻译，自带双语） */
+  const EN = (typeof I18N !== 'undefined' && I18N && I18N.lang === 'en');
+  const LABELS = EN
+    ? ['Outcome','Efficiency','Pace','Organization','Milestones']
+    : ['成果','效率','节奏','组织','里程碑'];
   const t0 = performance.now(), dur = REDUCE ? 1 : 1100;
   const shape = pts => { ctx.beginPath(); pts.forEach((p,i)=> i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); };
   function frame(now){
@@ -1178,7 +1183,8 @@ function drawRadar(cv, dims){
       }));
       ctx.strokeStyle = 'rgba(255,255,255,.07)'; ctx.lineWidth = DPR; ctx.stroke();
     }
-    /* 轴 */
+    /* 轴 + 顶点标签（维度名 + 分值/满分） */
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     dims.forEach((d,i) => {
       const a = -Math.PI/2 + i * TAU / n;
       ctx.strokeStyle = 'rgba(255,255,255,.09)';
@@ -1187,6 +1193,14 @@ function drawRadar(cv, dims){
       const px = cx + Math.cos(a)*R*d.frac*e, py = cy + Math.sin(a)*R*d.frac*e;
       ctx.fillStyle = rgba(CLR.bright, .95);
       ctx.beginPath(); ctx.arc(px, py, 3*DPR, 0, TAU); ctx.fill();
+      /* 标签贴在外沿 */
+      const lx = cx + Math.cos(a)*(R + 17*DPR), ly = cy + Math.sin(a)*(R + 17*DPR);
+      ctx.font = `600 ${Math.round(10.5*DPR)}px 'Noto Sans SC',sans-serif`;
+      ctx.fillStyle = 'rgba(196,226,238,.92)';
+      ctx.fillText(LABELS[i], lx, ly - 5.5*DPR);
+      ctx.font = `${Math.round(9*DPR)}px 'Noto Sans SC',sans-serif`;
+      ctx.fillStyle = 'rgba(143,178,194,.78)';
+      ctx.fillText(Math.round((d.val||0) * e) + '/' + (d.max || ''), lx, ly + 7.5*DPR);
     });
     /* 数据面 */
     const pts = dims.map((d,i) => {
@@ -1216,18 +1230,17 @@ function setupEndingFx(){
       box.innerHTML = '<div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:center">' +
         '<div style="text-align:center"><canvas class="fx-gauge" width="' + Math.round(210*DPR) + '" height="' + Math.round(180*DPR) + '" style="width:210px;height:180px"></canvas>' +
         '<div class="small muted" style="margin-top:4px">本局总积分 · 满分 100</div></div>' +
-        '<div style="text-align:center"><canvas class="fx-radar" width="' + Math.round(230*DPR) + '" height="' + Math.round(200*DPR) + '" style="width:230px;height:200px"></canvas>' +
-        '<div class="small muted" style="margin-top:4px">成果 · 效率 · 节奏 · 组织 · 里程碑</div></div>' +
+        '<div style="text-align:center"><canvas class="fx-radar" width="' + Math.round(250*DPR) + '" height="' + Math.round(210*DPR) + '" style="width:250px;height:210px"></canvas></div>' +
       '</div>';
       const anchor = body.querySelector('.panel.section') || body;
       anchor.appendChild(box);
       const dims = [
-        { frac: sc.parts.outcome / 66 },
-        { frac: sc.parts.efficiency / 8 },
-        { frac: sc.parts.pacing / 7 },
-        { frac: sc.parts.org / 15 },
-        { frac: sc.parts.milestone / 4 }
-      ].map(d => ({ frac: Math.max(0, Math.min(1, isFinite(d.frac) ? d.frac : 0)) }));
+        { frac: sc.parts.outcome / 66, val: sc.parts.outcome, max: 66 },
+        { frac: sc.parts.efficiency / 8, val: sc.parts.efficiency, max: 8 },
+        { frac: sc.parts.pacing / 7, val: sc.parts.pacing, max: 7 },
+        { frac: sc.parts.org / 15, val: sc.parts.org, max: 15 },
+        { frac: sc.parts.milestone / 4, val: sc.parts.milestone, max: 4 }
+      ].map(d => ({ frac: Math.max(0, Math.min(1, isFinite(d.frac) ? d.frac : 0)), val: d.val, max: d.max }));
       requestAnimationFrame(() => {
         drawRadar(box.querySelector('.fx-radar'), dims);
         drawGauge(box.querySelector('.fx-gauge'), sc.total, sc.grade);
