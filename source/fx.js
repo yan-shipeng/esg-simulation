@@ -138,6 +138,12 @@ css.textContent = [
   '.fx-netcine-cap{display:flex;align-items:baseline;gap:12px}',
   '.fx-netcine-kicker{font-size:12px;letter-spacing:4px;color:#6fd8a0;font-weight:700}',
   '.fx-netcine-action{font-size:20px;font-weight:800;color:#eaf6ef}',
+  '.fx-netcine-notes{display:flex;gap:18px;min-height:18px;align-items:center}',
+  '.fx-netcine-notes span{font-size:12.5px;font-weight:700;letter-spacing:2px;opacity:0;animation:fxNoteIn .45s forwards}',
+  '.fx-n-direct{color:#8ef0a8}',
+  '.fx-n-spread{color:#a6f4ff}',
+  '.fx-n-decay{color:#9ab4c2}',
+  '@keyframes fxNoteIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}',
   /* 减少动态：全停 */
   '@media (prefers-reduced-motion: reduce){.screen.active,.kpi .num.fx-pop,.fx-glass,.fx-holo,.svg-wrapper .node,.fx-ms,.fx-wipe i{animation:none!important}}'
 ].join('\n');
@@ -418,7 +424,7 @@ function netWave(entry, id, color, power){
 /* 网络推进过场：全屏播放本回合动作如何沿网络扩散（替代原全屏过场）。
    点击「执行决策」后铺满屏幕的大网络图上：能量从「你」错峰流向每个被触及的人，
    到达时冲击波 + 头顶浮出 ±N，升档金环/降档红环。 */
-const NETCINE_MS = 3400;
+const NETCINE_MS = 4600;
 function playNetCinematic(a){
   if(REDUCE || typeof state === 'undefined' || !state) return;
   const P = state.people;
@@ -429,7 +435,8 @@ function playNetCinematic(a){
   d.className = 'fx-netcine';
   d.innerHTML = '<div class="fx-netcine-cap"><span class="fx-netcine-kicker">网络推进</span>' +
     '<span class="fx-netcine-action">' + (li.actionLabel || (a && a.label) || '') + '</span></div>' +
-    '<canvas></canvas>';
+    '<canvas></canvas>' +
+    '<div class="fx-netcine-notes"></div>';
   document.body.appendChild(d);
   const cv = d.querySelector('canvas');
   const ctx = cv.getContext('2d');
@@ -445,12 +452,22 @@ function playNetCinematic(a){
     : row.delta > 0 ? CLR.bright
     : row.delta < 0 ? CLR.warn : CLR.teal;
   const stCol = st => st === 4 ? CLR.green : st === 3 ? CLR.bright : st === 2 ? CLR.teal : [96, 116, 128];
-  const pulses = [], waves = [], floats = [];
-  /* 直接推动（动作直接命中） vs 间接推动（网络扩散/带动/衰减） */
+  const pulses = [], waves = [], floats = [], cooling = [];
+  const notes = d.querySelector('.fx-netcine-notes');
+  const note = kind => {
+    if(!notes) return;
+    const el = document.createElement('span');
+    el.className = 'fx-n-' + kind;
+    el.textContent = { direct:'直接推动', spread:'间接推动', decay:'自然冷却' }[kind];
+    notes.appendChild(el);
+  };
+  /* 三分类：直接命中 / 网络带动 / 自然冷却（无能量流动） */
   const isDirect = row => (row.reasons || []).some(t => t === '直接推动' || t === '动作直接作用' || t === '广覆盖');
+  const isDecay = row => !isDirect(row) && (row.reasons || []).indexOf('自然衰减') >= 0 && (row.reasons || []).indexOf('网络扩散') < 0;
   rows.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
   const direct = rows.filter(isDirect).slice(0, 12);
-  const indirect = rows.filter(r => !isDirect(r)).slice(0, 12);
+  const decay = rows.filter(isDecay).slice(0, 12);
+  const spread = rows.filter(r => !isDirect(r) && !isDecay(r)).slice(0, 12);
   /* 间接推动的源头：从受影响最深、与其有关系的直接推动节点沿网络流过去 */
   const srcOf = row => {
     let best = null, bestScore = -1;
@@ -463,21 +480,24 @@ function playNetCinematic(a){
     });
     return best || 'pm';
   };
+  const STEEL = [130, 160, 175];
   /* 第一波：直接推动——从「你」直线出击 */
+  setTimeout(() => { if(d.parentNode) note('direct'); }, 300);
   direct.forEach((row, i) => {
-    const delay = 200 + i * 80;
+    const delay = 300 + i * 110;
     setTimeout(() => { if(d.parentNode) pulses.push({ a:'pm', b:row.id, t:0, col:rowCol(row), power:Math.min(1.7, .7 + Math.abs(row.delta) / 8) }); }, delay);
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
       floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
       waves.push({ x:s2[0], y:s2[1], r:5, alpha:.85, col:rowCol(row) });
-    }, delay + 620);
+    }, delay + 720);
   });
-  /* 第二波：间接推动——沿网络边从邻居流过来，薄荷色细尾，明显慢半拍 */
-  const iBase = 200 + direct.length * 80 + 650;
-  indirect.forEach((row, i) => {
-    const delay = iBase + i * 100;
+  /* 第二波：间接推动——沿网络边从邻居流过来 */
+  const iBase = 300 + direct.length * 110 + 950;
+  if(spread.length) setTimeout(() => { if(d.parentNode) note('spread'); }, iBase);
+  spread.forEach((row, i) => {
+    const delay = iBase + i * 130;
     const src = srcOf(row);
     const col = row.to > row.from ? CLR.gold : row.to < row.from ? CLR.danger
       : row.delta > 0 ? CLR.mint : row.delta < 0 ? CLR.warn : CLR.teal;
@@ -487,9 +507,21 @@ function playNetCinematic(a){
       const s2 = pos(row.id);
       floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col });
       waves.push({ x:s2[0], y:s2[1], r:5, alpha:.8, col:col });
-    }, delay + 620);
+    }, delay + 720);
   });
-  setTimeout(() => { if(d.parentNode && P.pm){ const s2 = pos('pm'); waves.push({ x:s2[0], y:s2[1], r:6, alpha:.9, col:CLR.mint }); } }, 70);
+  /* 自然冷却：不发射脉冲、不点亮连线——只在节点上做向内收缩的降温环 */
+  const dBase = iBase;
+  if(decay.length) setTimeout(() => { if(d.parentNode) note('decay'); }, dBase);
+  decay.forEach((row, i) => {
+    const delay = dBase + i * 130;
+    setTimeout(() => {
+      if(!d.parentNode) return;
+      const s2 = pos(row.id);
+      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:STEEL });
+      cooling.push({ x:s2[0], y:s2[1], t:0 });
+    }, delay + 240);
+  });
+  setTimeout(() => { if(d.parentNode && P.pm){ const s2 = pos('pm'); waves.push({ x:s2[0], y:s2[1], r:6, alpha:.9, col:CLR.mint }); } }, 90);
   const seed = id => { let h = 0; for(let i = 0; i < id.length; i++) h = (h * 31 + id.charCodeAt(i)) % 997; return h / 997 * 6.28; };
   let last = 0;
   (function frame(now){
@@ -518,7 +550,7 @@ function playNetCinematic(a){
       const pu = pulses[i];
       const pb = P[pu.b];
       if(!pb){ pulses.splice(i, 1); continue; }
-      pu.t += dt / .55;
+      pu.t += dt / .7;
       if(pu.t >= 1){
         pulses.splice(i, 1);
         const s2 = pos(pu.b);
@@ -578,6 +610,19 @@ function playNetCinematic(a){
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
       ctx.fillText(p.name, s2[0], s2[1] + R + 4);
     });
+    /* 自然冷却：向内收缩的降温环（无能量流动，不碰连线） */
+    for(let i = cooling.length - 1; i >= 0; i--){
+      const cc = cooling[i];
+      cc.t += dt;
+      if(cc.t > .95){ cooling.splice(i, 1); continue; }
+      const cr = 30 - cc.t * 22;
+      const ca = .55 * (1 - cc.t / .95);
+      ctx.strokeStyle = rgba(STEEL, ca);
+      ctx.lineWidth = 1.6;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.arc(cc.x, cc.y, Math.max(6, cr), 0, TAU); ctx.stroke();
+      ctx.setLineDash([]);
+    }
     /* 浮字 */
     for(let i = floats.length - 1; i >= 0; i--){
       const f = floats[i];
