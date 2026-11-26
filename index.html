@@ -8424,6 +8424,8 @@ const LOW = CORES <= 4 || MEM <= 4;          // 低端设备：自动降级
 const NO_MORPH = /nofxmorph/.test(location.hash || '');   /* 诊断开关：只关数字滚动 */
 const DPR = Math.min(window.devicePixelRatio || 1, LOW ? 1.25 : 2);
 const TAU = Math.PI * 2;
+/* 画布文本走运行时词典（DOM  MutationObserver 覆盖不到 canvas） */
+const TXT = s => (typeof I18N !== 'undefined' && I18N && I18N.t) ? I18N.t(s) : s;
 
 /* ESG 调色板（与主题一致） */
 const CLR = {
@@ -9027,7 +9029,7 @@ function playNetCinematic(a){
       ctx.fillStyle = 'rgba(214,232,224,.88)';
       ctx.font = '10.5px sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-      ctx.fillText(p.name, s2[0], s2[1] + R + 4);
+      ctx.fillText(TXT(p.name), s2[0], s2[1] + R + 4);
     });
     /* 自然冷却：向内收缩的降温环（无能量流动，不碰连线） */
     for(let i = cooling.length - 1; i >= 0; i--){
@@ -10084,7 +10086,7 @@ function replayFrame(now){
     ctx.fillStyle = 'rgba(214,232,224,.6)';
     ctx.font = '9.5px sans-serif';
     ctx.textAlign = 'center'; ctx.textBaseline = 'top';
-    ctx.fillText(p.name || id, pos[0], pos[1] + rad + 3);
+    ctx.fillText(TXT(p.name || id), pos[0], pos[1] + rad + 3);
   });
 
   /* 浮动分数 */
@@ -10103,7 +10105,7 @@ function replayFrame(now){
   ctx.fillStyle = 'rgba(214,232,224,.85)';
   ctx.font = '600 12.5px sans-serif';
   ctx.textAlign = 'left'; ctx.textBaseline = 'top';
-  ctx.fillText((rr + 1) + '/' + RP.R + ' · ' + (hh.actionLabel || ''), 12, 10);
+  ctx.fillText((rr + 1) + '/' + RP.R + ' · ' + TXT(hh.actionLabel || ''), 12, 10);
 
   if(RP.barFill) RP.barFill.style.width = (RP.t / (RP.R * RP.dur) * 100).toFixed(1) + '%';
 }
