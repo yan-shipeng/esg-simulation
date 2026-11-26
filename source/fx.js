@@ -507,7 +507,7 @@ function playNetCinematic(a){
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
-      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
+      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
       waves.push({ x:s2[0], y:s2[1], r:5, alpha:.85, col:rowCol(row) });
     }, delay + 760);
   });
@@ -522,7 +522,7 @@ function playNetCinematic(a){
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
-      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col });
+      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col });
       waves.push({ x:s2[0], y:s2[1], r:5, alpha:.8, col:col });
     }, delay + 740);
   });
@@ -533,7 +533,7 @@ function playNetCinematic(a){
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
-      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:STEEL });
+      if(row.revealed !== false) floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:STEEL });
       cooling.push({ x:s2[0], y:s2[1], t:0 });
     }, delay + 200);
   });
