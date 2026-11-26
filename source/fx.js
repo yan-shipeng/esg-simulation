@@ -392,11 +392,11 @@ function netObserve(entry){
 }
 
 /* 公开效果 API（脉冲沿边/曲线传播；冲击波扩散） */
-function netPulse(entry, fromId, toId, color, power){
+function netPulse(entry, fromId, toId, color, power, speed){
   if(REDUCE || !entry) return;
   const P = state.people;
   if(!P || !P[fromId] || !P[toId]) return;
-  entry.pulses.push({ a:fromId, b:toId, t:0, speed:.011 + Math.random()*.004, color:color||CLR.bright, power:power||1 });
+  entry.pulses.push({ a:fromId, b:toId, t:0, speed:(speed||(.011 + Math.random()*.004)), color:color||CLR.bright, power:power||1 });
   entry.hasPulse = true;
 }
 function netWave(entry, id, color, power){
@@ -409,7 +409,7 @@ function netWave(entry, id, color, power){
    能量从「你」错峰流向每个被触及的人，到达时冲击波 + 节点头顶浮出 ±N；
    升档金环 / 降档红环。每个 lastImpact 只播一次；结局页有完整战局回放，不重复播。 */
 let turnFxLast = null;
-function fxPlayTurnImpact(){
+function fxPlayTurnImpact(fast){
   if(REDUCE || typeof state === 'undefined' || !state || state.ended) return;
   const li = state.lastImpact;
   if(!li || turnFxLast === li) return;
@@ -422,34 +422,39 @@ function fxPlayTurnImpact(){
     const r = en.wrap.getBoundingClientRect();
     if(r.width > 4 && r.bottom > 0 && r.top < innerHeight) target = en;
   });
-  if(!target) return;                      /* 网络不可见：不标记已播，下次关闭弹窗再试 */
+  if(!target) return;                      /* 网络不可见：不标记已播，下次再试 */
   turnFxLast = li;
   rows.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
   netWave(target, 'pm', CLR.mint, 1);
+  /* fast=替代过场：整体压进 ~1.3s 的过场窗口 */
+  const launch = fast ? 60 : 120, step = fast ? 70 : 150, lag = fast ? 520 : 950;
   rows.slice(0, 12).forEach((row, i) => {
     const col = row.to > row.from ? CLR.gold
               : row.to < row.from ? CLR.danger
               : row.delta > 0 ? CLR.bright
               : row.delta < 0 ? CLR.warn : CLR.teal;
-    const delay = 120 + i * 150;
+    const delay = launch + i * step;
     setTimeout(() => {
       if(state.ended || !state.people[row.id]) return;
-      netPulse(target, 'pm', row.id, col, Math.min(1.6, .6 + Math.abs(row.delta) / 8));
+      netPulse(target, 'pm', row.id, col, Math.min(1.6, .6 + Math.abs(row.delta) / 8), fast ? .024 : 0);
     }, delay);
     setTimeout(() => {
       if(state.ended || !state.people[row.id] || state.people[row.id].removed) return;
       target.floats.push({ id:row.id, txt:(row.delta > 0 ? '+' : '') + row.delta, color:col, t:0 });
-    }, delay + 950);
+    }, delay + lag);
   });
 }
-function setupTurnFx(){
-  if(typeof closeModal !== 'function' || closeModal.__fxTurnWrapped) return;
-  const _cm = closeModal;
-  closeModal = function(){
-    _cm.apply(this, arguments);
-    try{ setTimeout(fxPlayTurnImpact, 60); }catch(_){ }
+/* 用网络推进动画替换全屏过场：保持原有节奏锁（结算弹窗出现时机不变），
+   不再创建 #cine overlay，改为能量从「你」流向本回合被触及的每一个人。 */
+function setupCinematicReplace(){
+  if(typeof playActionCinematic !== 'function' || playActionCinematic.__fxNetCine) return;
+  const _pac = playActionCinematic;
+  playActionCinematic = function(a, targetIds){
+    if(typeof cineDisabled === 'function' && cineDisabled()){ _pac(a, targetIds); return; }
+    try{ _cineStart = Date.now(); _cineBusy = true; }catch(_){ }
+    if(!REDUCE) setTimeout(() => { try{ fxPlayTurnImpact(true); }catch(_){ } }, 80);
   };
-  closeModal.__fxTurnWrapped = true;
+  playActionCinematic.__fxNetCine = true;
 }
 
 /* 每帧渲染 */
@@ -1490,7 +1495,7 @@ function boot(){
   try{ setupTilt(); }catch(_){ }
   try{ setupGlass(); }catch(_){ }
   try{ setupEndingFx(); }catch(_){ }
-  try{ setupTurnFx(); }catch(_){ }
+  try{ setupCinematicReplace(); }catch(_){ }
   try{ setupAtmosphere(); }catch(_){ }
   try{ setupStarfield(); }catch(_){ }
   try{ setupCursorGlow(); }catch(_){ }
