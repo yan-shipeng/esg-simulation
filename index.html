@@ -8821,7 +8821,7 @@ function netWave(entry, id, color, power){
 /* 网络推进过场：全屏播放本回合动作如何沿网络扩散（替代原全屏过场）。
    点击「执行决策」后铺满屏幕的大网络图上：能量从「你」错峰流向每个被触及的人，
    到达时冲击波 + 头顶浮出 ±N，升档金环/降档红环。 */
-const NETCINE_MS = 2600;
+const NETCINE_MS = 3400;
 function playNetCinematic(a){
   if(REDUCE || typeof state === 'undefined' || !state) return;
   const P = state.people;
@@ -8849,15 +8849,47 @@ function playNetCinematic(a){
     : row.delta < 0 ? CLR.warn : CLR.teal;
   const stCol = st => st === 4 ? CLR.green : st === 3 ? CLR.bright : st === 2 ? CLR.teal : [96, 116, 128];
   const pulses = [], waves = [], floats = [];
+  /* 直接推动（动作直接命中） vs 间接推动（网络扩散/带动/衰减） */
+  const isDirect = row => (row.reasons || []).some(t => t === '直接推动' || t === '动作直接作用' || t === '广覆盖');
   rows.sort((x, y) => Math.abs(y.delta) - Math.abs(x.delta));
-  rows.slice(0, 12).forEach((row, i) => {
-    const delay = 160 + i * 80;
-    setTimeout(() => { if(d.parentNode) pulses.push({ b:row.id, t:0, col:rowCol(row), power:Math.min(1.6, .6 + Math.abs(row.delta) / 8) }); }, delay);
+  const direct = rows.filter(isDirect).slice(0, 12);
+  const indirect = rows.filter(r => !isDirect(r)).slice(0, 12);
+  /* 间接推动的源头：从受影响最深、与其有关系的直接推动节点沿网络流过去 */
+  const srcOf = row => {
+    let best = null, bestScore = -1;
+    direct.forEach(dr => {
+      const p = P[row.id];
+      if(!p || !P[dr.id]) return;
+      if((p.ties || []).indexOf(dr.id) < 0 && (P[dr.id].ties || []).indexOf(row.id) < 0) return;
+      const score = Math.abs(dr.delta) + (P[dr.id].status || 0) * 2;
+      if(score > bestScore){ bestScore = score; best = dr.id; }
+    });
+    return best || 'pm';
+  };
+  /* 第一波：直接推动——从「你」直线出击 */
+  direct.forEach((row, i) => {
+    const delay = 200 + i * 80;
+    setTimeout(() => { if(d.parentNode) pulses.push({ a:'pm', b:row.id, t:0, col:rowCol(row), power:Math.min(1.7, .7 + Math.abs(row.delta) / 8) }); }, delay);
     setTimeout(() => {
       if(!d.parentNode) return;
       const s2 = pos(row.id);
       floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:rowCol(row) });
       waves.push({ x:s2[0], y:s2[1], r:5, alpha:.85, col:rowCol(row) });
+    }, delay + 620);
+  });
+  /* 第二波：间接推动——沿网络边从邻居流过来，薄荷色细尾，明显慢半拍 */
+  const iBase = 200 + direct.length * 80 + 650;
+  indirect.forEach((row, i) => {
+    const delay = iBase + i * 100;
+    const src = srcOf(row);
+    const col = row.to > row.from ? CLR.gold : row.to < row.from ? CLR.danger
+      : row.delta > 0 ? CLR.mint : row.delta < 0 ? CLR.warn : CLR.teal;
+    setTimeout(() => { if(d.parentNode && P[src]) pulses.push({ a:src, b:row.id, t:0, col:col, power:Math.min(1.2, .45 + Math.abs(row.delta) / 10) }); }, delay);
+    setTimeout(() => {
+      if(!d.parentNode) return;
+      const s2 = pos(row.id);
+      floats.push({ x:s2[0], y:s2[1], t:0, txt:(row.delta > 0 ? '+' : '') + row.delta, col:col });
+      waves.push({ x:s2[0], y:s2[1], r:5, alpha:.8, col:col });
     }, delay + 620);
   });
   setTimeout(() => { if(d.parentNode && P.pm){ const s2 = pos('pm'); waves.push({ x:s2[0], y:s2[1], r:6, alpha:.9, col:CLR.mint }); } }, 70);
@@ -8896,7 +8928,7 @@ function playNetCinematic(a){
         waves.push({ x:s2[0], y:s2[1], r:5, alpha:.6, col:pu.col });
         continue;
       }
-      const A = pos('pm'), B = pos(pu.b);
+      const A = pos(pu.a || 'pm'), B = pos(pu.b);
       const mx = (A[0] + B[0]) / 2, my = (A[1] + B[1]) / 2;
       const dx = B[0] - A[0], dy = B[1] - A[1];
       const len = Math.max(1, Math.hypot(dx, dy));
