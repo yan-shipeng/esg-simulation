@@ -523,5 +523,8 @@
   "自然冷却": "Natural cooling",
   "你亲自出马，正面推动": "You make your move — a direct push",
   "网络替你发力，层层带动": "Your network does the work, tier by tier",
-  "无人推动，自然回落": "Left alone, momentum fades"
+  "无人推动，自然回落": "Left alone, momentum fades",
+  "你把${a}调离了关键岗位。位置空出来了，但事情还得有人做。": "You moved ${a} out of the key post. The seat is empty, but the work still needs doing.",
+  "完全配合 ${a} 人": "Fully committed ${a}",
+  "完全配合人数（每个点对应一个回合，0 为起始；黄色虚线表示里程碑）": "Fully committed headcount (each dot is a round; 0 is the start; yellow dashes mark milestones)"
 }
