@@ -8425,7 +8425,7 @@ const NO_MORPH = /nofxmorph/.test(location.hash || '');   /* 诊断开关：只�
 const DPR = Math.min(window.devicePixelRatio || 1, LOW ? 1.25 : 2);
 const TAU = Math.PI * 2;
 /* 画布文本走运行时词典（DOM  MutationObserver 覆盖不到 canvas） */
-const TXT = s => (typeof I18N !== 'undefined' && I18N && I18N.t) ? I18N.t(s) : s;
+const TXT = s => (typeof I18N !== 'undefined' && I18N && I18N.t && I18N.lang === 'en') ? I18N.t(s) : s;
 
 /* ESG 调色板（与主题一致） */
 const CLR = {
