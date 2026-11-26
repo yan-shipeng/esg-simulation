@@ -6438,7 +6438,20 @@ function runTurn(){
     weeksLeft: state.resources,
     prediction: predictionText,
     milestones,
-    turnScore
+    turnScore,
+    /* v3 回放数据：本轮每个人的分数/状态变化（结局页动画用，不影响玩法） */
+    perPerson: (function(){
+      const m = {};
+      Object.keys(after.people).forEach(id=>{
+        if(id === 'pm') return;
+        const b = before.people[id], a = after.people[id];
+        if(!b || !a) return;
+        if(a.score !== b.score || a.status !== b.status){
+          m[id] = { d: a.score - b.score, from: b.status, to: a.status };
+        }
+      });
+      return m;
+    })()
   });
 
   state.trend.cred.push(after.cred);

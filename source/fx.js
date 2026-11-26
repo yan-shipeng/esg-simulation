@@ -117,6 +117,13 @@ css.textContent = [
   '#screen-decision{position:relative}',
   'canvas.fx-aurora{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}',
   '#screen-decision > *:not(canvas.fx-aurora){position:relative;z-index:1;background:rgba(6,17,26,.52)}',
+  /* 战局回放 */
+  '.fx-replay{margin-bottom:14px}',
+  '.fx-replay-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:10px}',
+  '.fx-replay-title{font-weight:700;font-size:15px;color:#eaf6ef;margin-bottom:2px}',
+  'canvas.fx-replay-cv{display:block;width:100%;height:320px;background:rgba(3,10,15,.55);border-radius:10px}',
+  '.fx-replay-track{height:5px;background:rgba(255,255,255,.08);border-radius:3px;margin-top:8px;cursor:pointer}',
+  '.fx-replay-track i{display:block;height:100%;width:0;background:linear-gradient(90deg,#0d8b96,#2f9e5f);border-radius:3px}',
   /* 减少动态：全停 */
   '@media (prefers-reduced-motion: reduce){.screen.active,.kpi .num.fx-pop,.fx-glass,.fx-holo,.svg-wrapper .node,.fx-ms,.fx-wipe i{animation:none!important}}'
 ].join('\n');
@@ -852,6 +859,7 @@ function setupEndingFx(){
     try{
       const body = elx('endingBody');
       if(!body || !body.innerHTML) return;
+      try{ buildReplay(body); }catch(_){ }
       if(body.querySelector('.fx-end-charts')) return;
       const sc = scoreBreakdown();
       const box = document.createElement('div');
@@ -1090,6 +1098,308 @@ function spawnConfetti(){
     if(!alive || el > 6){ cv.remove(); dropTask(frame); }
   }
   addTask(frame);
+}
+
+/* ═══ 结局页：战局回放（逐回合动画：动作如何沿网络扩散）══════ */
+const RP = {
+  built:false, playing:false, ended:false, t:0,
+  dur: LOW ? 1.5 : 1.9, R:0, hist:null, statusAt:null,
+  fired:{}, pulses:[], floats:[], waves:[], flash:{},
+  cv:null, ctx:null, btn:null, barFill:null, lastNow:0
+};
+function rpLayout(){
+  const r = RP.cv.getBoundingClientRect();
+  const bw = Math.min(r.width / VB.w, r.height / VB.h);
+  return { r, bw, cx:(r.width - VB.w*bw)/2, cy:(r.height - VB.h*bw)/2 };
+}
+function rpPos(id, L){
+  const p = state.people[id]; if(!p) return [0,0];
+  L = L || rpLayout();
+  return [ L.cx + (p.x - VB.x)*L.bw, L.cy + (p.y - VB.y)*L.bw ];
+}
+function rpStatusColor(st, removed){
+  if(removed) return [120,130,138];
+  if(st === 4) return CLR.green;
+  if(st === 3) return CLR.bright;
+  if(st === 2) return CLR.teal;
+  if(st === 1) return [120,150,160];
+  return [90,105,115];
+}
+function resetReplayOverlays(){
+  RP.pulses = []; RP.floats = []; RP.waves = []; RP.flash = {}; RP.fired = {};
+  RP.ended = false;
+}
+function syncReplayBtn(){
+  if(!RP.btn) return;
+  RP.btn.textContent = RP.ended ? '↻ 重新播放' : (RP.playing ? '⏸ 暂停' : '▶ 播放');
+}
+function seekReplay(t){
+  RP.t = Math.max(0, Math.min(t, RP.R * RP.dur));
+  resetReplayOverlays();
+  const upto = Math.floor(RP.t / RP.dur);
+  for(let r = 0; r < upto; r++) RP.fired[r] = true;
+  if(RP.t >= RP.R * RP.dur - .01){ RP.playing = false; RP.ended = true; }
+  syncReplayBtn();
+}
+function rpBestSource(id, r){
+  const P = state.people, me = P[id]; if(!me) return null;
+  let best = null, bs = -1;
+  const consider = nid => {
+    const p = P[nid]; if(!p || nid === id || p.removed) return;
+    const st = (RP.statusAt[r] && RP.statusAt[r][nid]) || 0;
+    if(st > bs){ bs = st; best = nid; }
+  };
+  (me.ties || []).forEach(consider);
+  ((state.informal) || []).forEach(k => {
+    const pr = k.split('|');
+    if(pr[0] === id) consider(pr[1]);
+    if(pr[1] === id) consider(pr[0]);
+  });
+  return best;
+}
+function fireRound(r){
+  const h = RP.hist[r], P = state.people;
+  const tIds = h.targetIds || [];
+  tIds.forEach(id => { if(P[id] && !P[id].removed) RP.pulses.push({ a:'pm', b:id, t:0, col:CLR.mint, power:1 }); });
+  const pp = h.perPerson || {};
+  const L = rpLayout();
+  Object.keys(pp).forEach(id => {
+    const p = P[id]; if(!p) return;
+    const ef = pp[id];
+    const pos = rpPos(id, L);
+    if(ef.d){
+      RP.floats.push({ x:pos[0], y:pos[1]-10, txt:(ef.d > 0 ? '+' : '') + ef.d,
+        col: ef.d > 0 ? CLR.bright : CLR.danger, t0: performance.now() });
+    }
+    if(ef.from !== undefined && ef.to !== ef.from){
+      RP.waves.push({ x:pos[0], y:pos[1], r:6, alpha:.9,
+        col: ef.to > ef.from ? CLR.gold : CLR.danger });
+      RP.flash[id] = { t0: performance.now(), col: ef.to > ef.from ? CLR.gold : CLR.danger };
+      /* 被网络带动（未被点名却受影响）：从最强的已转化邻居引来一束微光 */
+      if(tIds.indexOf(id) < 0){
+        const src = rpBestSource(id, r) || 'pm';
+        RP.pulses.push({ a:src, b:id, t:0, col: ef.d >= 0 ? CLR.bright : CLR.warn, power:.55 });
+      }
+    }
+  });
+}
+function buildReplay(body){
+  if(RP.built && RP.cv && RP.cv.isConnected) return;
+  if(RP.built && RP.cv && !RP.cv.isConnected){ RP.built = false; dropTask(replayFrame); }
+  RP._auto = false;
+  const hist = (typeof state !== 'undefined' && state.history) || [];
+  if(!hist.length) return;
+  RP.hist = hist; RP.R = hist.length;
+  /* 状态时间线：从终态倒推每回合开始时的状态 */
+  const finalS = {};
+  Object.keys(state.people).forEach(id => {
+    finalS[id] = state.people[id] ? state.people[id].status : 0;
+  });
+  RP.statusAt = new Array(RP.R + 1);
+  RP.statusAt[RP.R] = finalS;
+  for(let r = RP.R - 1; r >= 0; r--){
+    const prev = Object.assign({}, RP.statusAt[r + 1]);
+    const pp = hist[r].perPerson || {};
+    Object.keys(pp).forEach(id => { if(pp[id].from !== undefined) prev[id] = pp[id].from; });
+    RP.statusAt[r] = prev;
+  }
+  const box = document.createElement('div');
+  box.className = 'log-item fx-replay';
+  box.innerHTML =
+    '<div class="fx-replay-head"><div>' +
+      '<div class="fx-replay-title">战局回放</div>' +
+      '<div class="small muted">每个动作如何在关系网里扩散——亮点是被网络带动的人</div>' +
+    '</div><button class="btn fx-replay-btn" type="button">▶ 播放</button></div>' +
+    '<div class="fx-replay-stage"><canvas class="fx-replay-cv"></canvas>' +
+    '<div class="fx-replay-track"><i></i></div></div>';
+  body.insertBefore(box, body.firstChild);
+  RP.cv = box.querySelector('canvas');
+  RP.ctx = RP.cv.getContext('2d');
+  RP.btn = box.querySelector('.fx-replay-btn');
+  RP.barFill = box.querySelector('.fx-replay-track i');
+  const track = box.querySelector('.fx-replay-track');
+  track.addEventListener('click', e => {
+    const r = track.getBoundingClientRect();
+    seekReplay((e.clientX - r.left) / Math.max(1, r.width) * RP.R * RP.dur);
+    RP.playing = !RP.ended;
+    syncReplayBtn();
+  });
+  RP.btn.addEventListener('click', () => {
+    if(RP.ended){ seekReplay(0); RP.playing = true; }
+    else RP.playing = !RP.playing;
+    syncReplayBtn();
+  });
+  RP.built = true;
+  if(REDUCE){ RP.btn.style.display = 'none'; seekReplay(RP.R * RP.dur); }
+  else if('IntersectionObserver' in window){
+    const io = new IntersectionObserver(en => {
+      en.forEach(x => {
+        if(x.isIntersecting && !RP._auto){ RP._auto = true; RP.playing = true; syncReplayBtn(); }
+      });
+    }, { threshold:.3 });
+    io.observe(box);
+  }
+  seekReplay(REDUCE ? RP.R * RP.dur : 0);
+  addTask(replayFrame);
+}
+function replayFrame(now){
+  if(!RP.cv || !RP.cv.isConnected){ dropTask(replayFrame); return; }
+  const box = RP.cv.closest('.fx-replay');
+  if(!box) { dropTask(replayFrame); return; }
+  const br = box.getBoundingClientRect();
+  if(br.bottom < 0 || br.top > innerHeight || document.hidden){ RP.lastNow = now; return; }
+  const { w, h } = fitCanvas(RP.cv);
+  const ctx = RP.ctx;
+  ctx.clearRect(0, 0, w, h);
+  const P = (typeof state !== 'undefined') ? state.people : null;
+  if(!P) return;
+  const dt = RP.lastNow ? Math.min(.06, (now - RP.lastNow) / 1000) : 0;
+  RP.lastNow = now;
+  if(RP.playing && !REDUCE){
+    RP.t += dt;
+    if(RP.t >= RP.R * RP.dur){
+      RP.t = RP.R * RP.dur; RP.playing = false; RP.ended = true; syncReplayBtn();
+    }
+  }
+  const rr = Math.max(0, Math.min(RP.R - 1, Math.floor(RP.t / RP.dur)));
+  const phase = RP.t / RP.dur - rr;
+  const fireAt = LOW ? .3 : .42;
+  if(!REDUCE && !RP.fired[rr] && phase >= fireAt){ RP.fired[rr] = true; fireRound(rr); }
+
+  const L = rpLayout();
+  const curStatus = RP.statusAt[RP.fired[rr] ? Math.min(RP.R, rr + 1) : rr] || RP.statusAt[RP.R];
+  const t = now / 1000;
+
+  /* 边 */
+  const seen = {};
+  ctx.lineWidth = 1 * DPR;
+  Object.keys(P).forEach(id => {
+    const p = P[id]; if(!p || typeof p.x !== 'number') return;
+    (p.ties || []).forEach(tid => {
+      if(id >= tid || !P[tid]) return;
+      const key = id + '|' + tid;
+      if(seen[key]) return; seen[key] = 1;
+      const A = rpPos(id, L), B = rpPos(tid, L);
+      ctx.strokeStyle = rgba(CLR.teal, .16);
+      ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    });
+  });
+  ((state.informal) || []).forEach(k => {
+    const pr = k.split('|');
+    if(pr.length !== 2 || seen[k] || !P[pr[0]] || !P[pr[1]]) return;
+    seen[k] = 1;
+    const A = rpPos(pr[0], L), B = rpPos(pr[1], L);
+    ctx.strokeStyle = rgba(CLR.mint, .12);
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath(); ctx.moveTo(A[0], A[1]); ctx.lineTo(B[0], B[1]); ctx.stroke();
+    ctx.setLineDash([]);
+  });
+
+  /* 脉冲（能量沿弧线流动） */
+  for(let i = RP.pulses.length - 1; i >= 0; i--){
+    const pu = RP.pulses[i];
+    const pa = P[pu.a], pb = P[pu.b];
+    if(!pa || !pb){ RP.pulses.splice(i, 1); continue; }
+    pu.t += dt / 1.05;
+    if(pu.t >= 1){
+      RP.waves.push({ x:rpPos(pu.b, L)[0], y:rpPos(pu.b, L)[1], r:5, alpha:.55, col:pu.col });
+      RP.pulses.splice(i, 1); continue;
+    }
+    const A = rpPos(pu.a, L), B = rpPos(pu.b, L);
+    const mx = (A[0]+B[0])/2, my = (A[1]+B[1])/2;
+    const dx = B[0]-A[0], dy = B[1]-A[1];
+    const len = Math.max(1, Math.hypot(dx, dy));
+    const nx = mx - dy/len*len*.18, ny = my + dx/len*len*.18;
+    const tt = easeOut(pu.t);
+    ctx.globalCompositeOperation = 'lighter';
+    for(let k = 3; k >= 0; k--){
+      const tk = Math.max(0, tt - k * .05);
+      const xk = (1-tk)*(1-tk)*A[0] + 2*(1-tk)*tk*nx + tk*tk*B[0];
+      const yk = (1-tk)*(1-tk)*A[1] + 2*(1-tk)*tk*ny + tk*tk*B[1];
+      const rr2 = (4.5 - k) * pu.power;
+      const g = ctx.createRadialGradient(xk, yk, 0, xk, yk, rr2 * 2.4);
+      g.addColorStop(0, rgba(pu.col, .55 - k * .11));
+      g.addColorStop(1, rgba(pu.col, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(xk, yk, rr2 * 2.4, 0, TAU); ctx.fill();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  /* 冲击波 */
+  for(let i = RP.waves.length - 1; i >= 0; i--){
+    const wv = RP.waves[i];
+    wv.r += 46 * dt; wv.alpha *= Math.pow(.02, dt);
+    if(wv.alpha < .02){ RP.waves.splice(i, 1); continue; }
+    ctx.strokeStyle = rgba(wv.col, wv.alpha);
+    ctx.lineWidth = 2 * DPR;
+    ctx.beginPath(); ctx.arc(wv.x, wv.y, wv.r, 0, TAU); ctx.stroke();
+  }
+
+  /* 节点 */
+  const rad = Math.max(6, 13 * L.bw);
+  Object.keys(P).forEach(id => {
+    const p = P[id]; if(!p || typeof p.x !== 'number') return;
+    const pos = rpPos(id, L);
+    const st = curStatus[id] !== undefined ? curStatus[id] : (p.status || 0);
+    const col = rpStatusColor(st, p.removed);
+    const isPm = id === 'pm';
+    /* 光晕 */
+    if(!LOW && (isPm || st >= 3) && !p.removed){
+      ctx.globalCompositeOperation = 'lighter';
+      const gr = rad * (isPm ? 3 : 2.4);
+      const g = ctx.createRadialGradient(pos[0], pos[1], 0, pos[0], pos[1], gr);
+      g.addColorStop(0, rgba(isPm ? CLR.gold : col, isPm ? .22 : .14 + .05 * Math.sin(t * 2 + pos[0])));
+      g.addColorStop(1, rgba(col, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(pos[0], pos[1], gr, 0, TAU); ctx.fill();
+      ctx.globalCompositeOperation = 'source-over';
+    }
+    ctx.beginPath();
+    ctx.arc(pos[0], pos[1], isPm ? rad * 1.25 : rad, 0, TAU);
+    ctx.fillStyle = p.removed ? 'rgba(20,28,34,.9)' : rgba(col, st >= 2 ? .28 : .16);
+    ctx.fill();
+    ctx.lineWidth = (isPm ? 2.2 : 1.6) * DPR;
+    ctx.strokeStyle = rgba(isPm ? CLR.gold : col, p.removed ? .4 : .95);
+    if(p.removed) ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    /* 转化闪光环 */
+    const fl = RP.flash[id];
+    if(fl){
+      const age = (now - fl.t0) / 1000;
+      if(age < 1.2){
+        ctx.strokeStyle = rgba(fl.col, .8 * (1 - age / 1.2));
+        ctx.lineWidth = 2.5 * DPR;
+        ctx.beginPath(); ctx.arc(pos[0], pos[1], rad + 4 + age * 16, 0, TAU); ctx.stroke();
+      } else delete RP.flash[id];
+    }
+    /* 名字 */
+    ctx.fillStyle = 'rgba(214,232,224,.6)';
+    ctx.font = (9.5 * DPR) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(p.name || id, pos[0], pos[1] + rad + 3);
+  });
+
+  /* 浮动分数 */
+  for(let i = RP.floats.length - 1; i >= 0; i--){
+    const f = RP.floats[i];
+    const age = (now - f.t0) / 1000;
+    if(age > 1.3){ RP.floats.splice(i, 1); continue; }
+    ctx.fillStyle = rgba(f.col, 1 - age / 1.3);
+    ctx.font = '700 ' + (12 * DPR) + 'px sans-serif';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.txt, f.x, f.y - age * 30);
+  }
+
+  /* 回合标注 */
+  const hh = RP.hist[rr];
+  ctx.fillStyle = 'rgba(214,232,224,.85)';
+  ctx.font = '600 ' + (12.5 * DPR) + 'px sans-serif';
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillText((rr + 1) + '/' + RP.R + ' · ' + (hh.actionLabel || ''), 12 * DPR, 10 * DPR);
+
+  if(RP.barFill) RP.barFill.style.width = (RP.t / (RP.R * RP.dur) * 100).toFixed(1) + '%';
 }
 
 /* ═══ 启动 ═══════════════════════════════════════════════════ */
