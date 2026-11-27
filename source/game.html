@@ -77,6 +77,14 @@
     #screen-decision > div[data-decision-grid] > .panel:nth-child(2){position:static;align-self:start}
     #screen-decision > div[data-decision-grid] > .panel:nth-child(2) .svg-wrapper{height:320px !important}
     #screen-decision > div[data-decision-grid] > .panel:nth-child(2) #detailBox2{max-height:none !important;overflow:visible !important}
+    /* v132：桌面宽屏下右栏（网络图）吸顶跟随——滚动动作列表时网络永远在视线里。
+       窄屏/手机维持原样（单列自然排版）。 */
+    @media (min-width:1100px){
+      #screen-decision > div[data-decision-grid] > .panel:nth-child(2){
+        position:sticky!important;top:60px;align-self:start;
+        max-height:calc(100vh - 80px);overflow-y:auto;overflow-x:hidden;
+      }
+    }
 
     .cards{display:grid;gap:12px}
     .card{padding:14px;border:1px solid var(--border);border-radius:12px;background:var(--surface2);transition:border-color .16s ease,background-color .16s ease}
@@ -2773,7 +2781,8 @@ const ACTIONS=[
      if(warm>0){
        const bonus=warm*2;
        ids.forEach(id=>{
-         if(convIds.some(c=>isInformalPair(c,id))) applyGain(id, bonus, '示范', 'spread');
+         const src=convIds.find(c=>isInformalPair(c,id));
+         if(src) applyGain(id, bonus, '示范', 'spread', src);
        });
        details.push(`🤝 其中 ${warm} 个人跟案例主角本来就有私交，熟人讲的事更可信（每人再 +${bonus}）。`);
      }
@@ -2832,7 +2841,7 @@ const ACTIONS=[
       const q=state.people[t];
       if(!q || q.status>=4 || t===ids[0]) return;
       const before=q.status;
-      const rr=applyGain(t, 6, '沟通', 'spread');
+      const rr=applyGain(t, 6, '沟通', 'spread', ids[0]);
       heard.push(`${q.name}${(STATUS_LABELS[q.status]!==STATUS_LABELS[before])?'（'+STATUS_LABELS[before]+'→'+STATUS_LABELS[q.status]+'）':''}`);
     });
     if(heard.length){
@@ -3398,8 +3407,9 @@ function replacedList(){
 }
 function replacedCount(){ return replacedList().length; }
 
-function applyGain(personId, rawAmount, actionType, mode){
+function applyGain(personId, rawAmount, actionType, mode, via){
   // mode: 'direct' | 'broad' | 'spread'
+  // via：扩散源头人物 id（v131：结果页要标出"经谁的关系带动"）
   const p=state.people[personId];
   /* v90：离场的人不再接受任何推动——他在这一局里已经不存在了 */
   if(!p || p.removed) return { prev: p?p.status:0, now: p?p.status:0, amount:0, newlyConverted:false };
@@ -3442,7 +3452,7 @@ function applyGain(personId, rawAmount, actionType, mode){
     state.turnEvents.push({id:personId, mode, actionType:actionType||'', base:baseAmount,
       pref:prefMul, soft:softMul, stage:stageMul, post:postMul, amount:Math.round(p.score-scoreBefore),
       from:Math.round(scoreBefore), to:Math.round(p.score),
-      prev, now:p.status, locked: Math.round(amount) < preLock});
+      prev, now:p.status, locked: Math.round(amount) < preLock, via: via || ''});
   }catch(_){}
   return { prev, now:p.status, amount, newlyConverted: prev<4 && p.status===4 };
 }
@@ -3523,7 +3533,7 @@ function affectTargets(ids, amount, story, spill=false, actionType){
     if(r.newlyConverted) newlyConverted.push(id);
     if(spill){
       p.ties.forEach(t=>{
-        const r2 = applyGain(t, 6, actionType, 'spread');
+        const r2 = applyGain(t, 6, actionType, 'spread', id);
         if(r2.newlyConverted) newlyConverted.push(t);
       });
       details.push(`${p.name}的关系网络也受到间接影响。`);
@@ -3612,7 +3622,7 @@ function handleConversions(newlyConverted, details, originActionType){
       const amt=contagionStrength(id,t,1);
       if(amt<=0) return;
       const before=q.status;
-      applyGain(t, amt, originActionType||'示范', 'spread');
+      applyGain(t, amt, originActionType||'示范', 'spread', id);
       if(q.status>before){
         pushed.push(`${q.name}（${STATUS_LABELS[before]}→${STATUS_LABELS[q.status]}）`);
       }
@@ -3625,7 +3635,7 @@ function handleConversions(newlyConverted, details, originActionType){
     if(partners.length){
       const hit=[];
       partners.forEach(x=>{
-        const r2=applyGain(x,5,originActionType||'示范','spread');
+        const r2=applyGain(x,5,originActionType||'示范','spread', id);
         if(r2.newlyConverted && !alreadySpread.has(x)) secondWave.push(x);
         hit.push(state.people[x].name);
       });
@@ -3641,7 +3651,7 @@ function handleConversions(newlyConverted, details, originActionType){
         const q=state.people[t]; if(!q) return;
         if(q.status<3 && !alreadySpread.has(t)){
           // v17：用原动作类型，使偏好系数生效
-          const r = applyGain(t, 4, originActionType || '示范', 'spread');
+          const r = applyGain(t, 4, originActionType || '示范', 'spread', id);
           if(r.newlyConverted) secondWave.push(t);
         }
       });
@@ -5792,7 +5802,12 @@ function buildPeopleImpact(before, after){
       stageBad = tag.k==='bad';
       stageGood = tag.k==='good';
     }
-    if(modes.spread) reasons.push('网络扩散');
+    if(modes.spread){
+      reasons.push('网络扩散');
+      /* v131：把"经谁的关系带动"点名——这是网络机制最该被看见的一课 */
+      const vias=[...new Set(evs.filter(e=>e.mode==='spread'&&e.via&&state.people[e.via]).map(e=>state.people[e.via].name))];
+      if(vias.length) reasons.push(`经 ${vias.join('、')} 的关系带动`);
+    }
     if(modes.broad) reasons.push('广覆盖');
     if(modes.ruleNear) reasons.push('离被换掉的人最近，最先慌');
     if(modes.ruleFar) reasons.push('听说了这件事，也跟着收手');
